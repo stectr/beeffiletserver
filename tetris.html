@@ -501,7 +501,7 @@
     </div>
   </main>
 
-  <span class="version-label" aria-label="Game version 2.01">v2.01</span>
+  <span class="version-label" aria-label="Game version 2.02">v2.02</span>
 
   <script>
     (() => {
@@ -1192,7 +1192,10 @@
         level = 1;
         combo = -1;
         backToBack = false;
+        debugMode = false;
+        debugThemeTapCount = 0;
         debugUsed = false;
+        debugClearButton.hidden = true;
         paused = true;
         gameOver = false;
         gravityElapsed = 0;

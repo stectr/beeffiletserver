@@ -131,6 +131,21 @@ test("pixel is the default and selected styles are saved and restored", () => {
   assert.equal(createGame("invalid").document.body.dataset.theme, "pixel");
 });
 
+test("starting a new game exits debug mode until the entry sequence is repeated", () => {
+  const { game, elements } = createGame();
+  const themeButton = elements.get("theme-button");
+  const debugClearButton = elements.get("debug-clear");
+  for (let i = 0; i < 7; i++) themeButton.dispatch("click");
+  assert.equal(debugClearButton.hidden, false);
+
+  game.newGame(false);
+  assert.equal(debugClearButton.hidden, true);
+  for (let i = 0; i < 6; i++) themeButton.dispatch("click");
+  assert.equal(debugClearButton.hidden, true);
+  themeButton.dispatch("click");
+  assert.equal(debugClearButton.hidden, false);
+});
+
 function setLandedPiece(game, type = "O") {
   const piece = game.createPiece(type);
   piece.y = 20;
