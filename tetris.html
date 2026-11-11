@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="TETRIS">
+  <meta name="apple-mobile-web-app-title" content="sTetris">
   <link rel="apple-touch-icon" sizes="180x180" href="/tetris-icon.png">
   <link rel="icon" type="image/png" sizes="180x180" href="/tetris-icon.png">
-  <title>TETRIS — beeffilet</title>
+  <title>sTetris — beeffilet</title>
   <style>
     :root {
       color-scheme: dark;
@@ -227,12 +227,28 @@
       opacity: 0;
     }
 
+    .countdown-overlay {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: #000b;
+      text-align: center;
+    }
+
+    .countdown-overlay[hidden] { display: none; }
+    .countdown-number { font-size: clamp(56px, 18vw, 100px); font-weight: 750; line-height: 1; }
+
     body[data-theme="pixel"] {
       --panel: #171717;
       --line: #494949;
       --muted: #a0a0a0;
-      --board: #858585;
-      --grid: #777;
+      --board: #1c1c1c;
+      --grid: #2a2a2a;
       --ghost: #5b5b5b;
       --block: #dedede;
       --text: #f0f0f0;
@@ -251,10 +267,10 @@
 
     body[data-theme="pixel"] .board-shell {
       border: 0;
-      outline: 4px solid #555;
+      outline: 4px solid #9e9e9e;
       outline-offset: 0;
       border-radius: 0;
-      background: #858585;
+      background: #1c1c1c;
       box-shadow: 4px 4px 0 #080808;
     }
 
@@ -368,6 +384,14 @@
       font-size: 11px;
       text-align: center;
     }
+    .clear-result {
+      min-height: 16px;
+      color: #fff;
+      font-size: 11px;
+      line-height: 1.4;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
 
     @media (max-height: 680px) and (orientation: portrait) {
       body.mobile #app { gap: 8px; padding-top: max(8px, env(safe-area-inset-top)); }
@@ -391,15 +415,15 @@
 </head>
 <body>
   <main class="desktop">
-    <h1>TETRIS</h1>
+    <h1>sTetris</h1>
     <p>This game is made for touch screens.</p>
     <a href="https://tetr.io/" target="_blank" rel="noopener noreferrer">Play TETR.IO</a>
   </main>
 
-  <main id="app" aria-label="Touch Tetris">
+  <main id="app" aria-label="sTetris">
     <header class="topbar">
-      <span class="wordmark">TETRIS</span>
-      <button id="theme-button" class="round-button theme-button" type="button" aria-label="Switch game style">Classic</button>
+      <span class="wordmark">sTetris</span>
+      <button id="theme-button" class="round-button theme-button" type="button" aria-label="Switch game style">Pixel</button>
       <button id="pause-button" class="round-button" type="button">Menu</button>
     </header>
 
@@ -418,6 +442,11 @@
       <div>
         <div id="board-shell" class="board-shell">
           <canvas id="board" aria-label="Game board"></canvas>
+          <div id="countdown-overlay" class="countdown-overlay" role="dialog" aria-modal="true" aria-label="Resume countdown" hidden>
+            <span class="mini-label">Get ready</span>
+            <strong id="countdown-number" class="countdown-number" aria-live="polite">3</strong>
+            <button id="countdown-cancel" class="round-button" type="button">Cancel</button>
+          </div>
         </div>
       </div>
 
@@ -439,7 +468,9 @@
           <div id="progress-fill" class="progress-fill"></div>
         </div>
       </div>
+      <button id="debug-clear" class="round-button skip-score" type="button" hidden>Clear board</button>
     </section>
+    <div id="clear-result" class="clear-result" aria-live="polite"></div>
     <div id="message" class="message" aria-live="polite"></div>
     <div id="overlay" class="board-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" hidden>
       <section class="guide-card">
@@ -470,7 +501,7 @@
     </div>
   </main>
 
-  <span class="version-label" aria-label="Game version 1.31">v1.31</span>
+  <span class="version-label" aria-label="Game version 2.0">v2.0</span>
 
   <script>
     (() => {
@@ -494,11 +525,17 @@
       const ROWS = 22;
       const HIDDEN_ROWS = 2;
       const LOCK_DELAY = 500;
+      const MAX_LOCK_RESETS = 15;
+      const SPAWN_GRACE = 150;
       const DROP_TRAIL_DURATION = 220;
       const FALL_SNAP_DURATION = 140;
       const HORIZONTAL_DRAG_STEP_FACTOR = .75;
       const HARD_DROP_SPEED = .75;
-      const SOFT_DROP_INTERVAL = 80;
+      const GUIDELINE_GRAVITY = [
+        .01667, .021017, .026977, .035256, .04693, .06361, .0879, .1236, .1775,
+        .2598, .388, .59, .92, 1.46, 2.36, 3.91, 6.61, 11.43, 20
+      ];
+      const MAX_GRAVITY = GUIDELINE_GRAVITY[GUIDELINE_GRAVITY.length - 1];
       const MAX_RENDER_DPR = 3;
       const PIECES = {
         I: [[-1.5, -.5], [-.5, -.5], [.5, -.5], [1.5, -.5]],
@@ -541,6 +578,10 @@
       const overlayDetail = document.getElementById("overlay-detail");
       const overlayAction = document.getElementById("overlay-action");
       const menuNewGameButton = document.getElementById("menu-new-game");
+      const countdownOverlay = document.getElementById("countdown-overlay");
+      const countdownNumber = document.getElementById("countdown-number");
+      const countdownCancel = document.getElementById("countdown-cancel");
+      const debugClearButton = document.getElementById("debug-clear");
       const scoreForm = document.getElementById("score-form");
       const playerNameInput = document.getElementById("player-name");
       const skipScoreButton = document.getElementById("skip-score");
@@ -551,6 +592,7 @@
       const progressFill = document.getElementById("progress-fill");
       const progressBar = document.querySelector('[role="progressbar"]');
       const messageElement = document.getElementById("message");
+      const clearResultElement = document.getElementById("clear-result");
       const themeButton = document.getElementById("theme-button");
       const totalLinesElement = document.getElementById("total-lines");
 
@@ -560,14 +602,14 @@
           pieces: null
         },
         pixel: {
-          board: "#858585", grid: "#777777", ghost: "#5b5b5b", block: "#dedede",
+          board: "#1c1c1c", grid: "#2a2a2a", ghost: "#5b5b5b", block: "#dedede",
           pieces: {
-            I: "#35c9de", O: "#f0d83e", T: "#ad63c9", S: "#58c64f",
-            Z: "#e34b43", J: "#4b68dc", L: "#ed963b"
+            I: "#00e0ff", O: "#ffd400", T: "#b44dff", S: "#3ddc4a",
+            Z: "#ff3b5c", J: "#2f6bff", L: "#ff8a1f"
           }
         }
       };
-      let theme = "modern";
+      let theme = "pixel";
 
       function applyTheme(save = false) {
         document.body.dataset.theme = theme;
@@ -604,11 +646,19 @@
       let level = 1;
       let combo = -1;
       let backToBack = false;
+      let debugThemeTapCount = 0;
+      let debugThemeLastTapAt = 0;
+      let debugMode = false;
+      let debugUsed = false;
       let paused = false;
       let gameOver = false;
       let gravityElapsed = 0;
+      let spawnGraceRemaining = 0;
       let lockStarted = null;
+      let lockElapsed = 0;
       let lockResets = 0;
+      let gameStarted = false;
+      let resumeCountdownTimer = null;
       let lastTime = 0;
       let lastMoveWasRotation = false;
       let lastKickIndex = 0;
@@ -664,11 +714,35 @@
         fallSnapElapsed = FALL_SNAP_DURATION;
         queue.push(takePiece());
         holdUsed = false;
-        lockStarted = null;
-        lockResets = 0;
+        resetPieceTiming();
         lastMoveWasRotation = false;
         if (collides(current)) endGame();
         drawPreviews();
+      }
+
+      function resetPieceTiming() {
+        gravityElapsed = 0;
+        spawnGraceRemaining = SPAWN_GRACE;
+        lockStarted = null;
+        lockElapsed = 0;
+        lockResets = 0;
+        lastTime = 0;
+      }
+
+      function updateLockTimer(time) {
+        const grounded = current && collides(current, current.x, current.y + 1);
+        if (lockStarted !== null) lockElapsed += Math.max(0, time - lockStarted);
+        lockStarted = grounded ? time : null;
+        return grounded;
+      }
+
+      function resetLockForAction(time) {
+        const grounded = updateLockTimer(time);
+        if (grounded && lockResets < MAX_LOCK_RESETS) {
+          lockElapsed = 0;
+          lockResets++;
+        }
+        lockStarted = null;
       }
 
       function rotateCells(cells, direction) {
@@ -678,24 +752,24 @@
 
       function move(dx, dy, points = false) {
         if (paused || gameOver || !current || collides(current, current.x + dx, current.y + dy)) return false;
+        const time = performance.now();
+        if (dx !== 0) resetLockForAction(time);
         current.x += dx;
         current.y += dy;
         lastMoveWasRotation = false;
         if (points && dy > 0) addScore(dy);
-        if (dy !== 0) lockStarted = null;
-        else resetLockIfGrounded();
+        if (dx !== 0) updateLockTimer(time);
         return true;
       }
 
-      function resetLockIfGrounded() {
-        if (lockStarted !== null && lockResets < 15) {
-          lockStarted = null;
-          lockResets++;
-        }
-      }
-
       function rotate(direction) {
-        if (paused || gameOver || !current || current.type === "O") return;
+        if (paused || gameOver || !current) return;
+        if (current.type === "O") {
+          const time = performance.now();
+          resetLockForAction(time);
+          updateLockTimer(time);
+          return;
+        }
         const from = current.rotation;
         const to = (from + (direction > 0 ? 1 : 3)) % 4;
         const key = `${from}>${to}`;
@@ -706,13 +780,15 @@
           const nx = current.x + dx;
           const ny = current.y - dyUp;
           if (!collides(current, nx, ny, turned)) {
+            const time = performance.now();
+            resetLockForAction(time);
             current.x = nx;
             current.y = ny;
             current.cells = turned;
             current.rotation = to;
             lastMoveWasRotation = current.type === "T";
             lastKickIndex = i;
-            resetLockIfGrounded();
+            updateLockTimer(time);
             draw();
             return;
           }
@@ -730,8 +806,7 @@
           held = outgoing;
           current = createPiece(incoming);
           fallSnapElapsed = FALL_SNAP_DURATION;
-          lockStarted = null;
-          lockResets = 0;
+          resetPieceTiming();
           lastMoveWasRotation = false;
           if (collides(current)) endGame();
         }
@@ -802,15 +877,16 @@
           flashTimer = 180;
           grid = grid.filter((row, index) => !fullRows.includes(index));
           while (grid.length < ROWS) grid.unshift(Array(COLS).fill(null));
-          scoreClear(fullRows.length, spin);
+          const perfectClear = grid.every((row) => row.every((cell) => cell === null));
+          scoreClear(fullRows.length, spin, perfectClear);
           lines += fullRows.length;
           const newLevel = Math.floor(lines / 10) + 1;
-          if (newLevel > level) showMessage(`Level ${newLevel}`);
           level = newLevel;
         } else if (spin) {
           const spinPoints = spin === "T-spin" ? 400 : 100;
-          addScore(spinPoints * level);
-          showMessage(spin);
+          const points = spinPoints * level;
+          addScore(points);
+          clearResultElement.textContent = `${spin} · No lines +${points.toLocaleString()}`;
           combo = -1;
         } else {
           combo = -1;
@@ -821,23 +897,32 @@
         draw();
       }
 
-      function scoreClear(count, spin) {
+      function scoreClear(count, spin, perfectClear) {
         const tables = {
           normal: [0, 100, 300, 500, 800],
           "T-spin": [400, 800, 1200, 1600],
           "Mini T-spin": [100, 200, 400]
         };
+        const perfectClearPoints = [0, 800, 1200, 1800, 2000];
         const difficult = Boolean(spin) || count === 4;
-        const base = (tables[spin || "normal"][count] || 0) * level;
-        let points = base;
-        if (difficult && backToBack) points = Math.floor(points * 1.5);
+        const base = (perfectClear ? perfectClearPoints[count] : tables[spin || "normal"][count]) || 0;
+        let points = base * level;
+        const isBackToBack = difficult && backToBack;
+        if (isBackToBack) {
+          points = perfectClear && count === 4
+            ? 3200 * level
+            : Math.floor(points * 1.5);
+        }
         if (difficult) backToBack = true;
         else backToBack = false;
         combo++;
-        if (combo > 0) points += 50 * combo * level;
-        addScore(points);
-        const label = spin ? `${spin}${count ? ` · ${count} line${count > 1 ? "s" : ""}` : ""}` : `${count} line${count > 1 ? "s" : ""}`;
-        showMessage(`${label}${combo > 0 ? ` · Combo ${combo}` : ""}${difficult && backToBack ? " · B2B" : ""}`);
+        const comboPoints = combo > 0 ? 50 * combo * level : 0;
+        addScore(points + comboPoints);
+        const clearName = ["", "Single", "Double", "Triple", "Tetris"][count];
+        const label = spin ? `${spin} ${clearName}` : clearName;
+        const bonuses = `${perfectClear ? " · Perfect Clear" : ""}${isBackToBack ? " · B2B" : ""}`;
+        const comboText = comboPoints ? ` · Combo ${combo} +${comboPoints.toLocaleString()} = +${(points + comboPoints).toLocaleString()}` : "";
+        clearResultElement.textContent = `${label}${bonuses} +${points.toLocaleString()}${comboText}`;
       }
 
       function addScore(points) {
@@ -862,10 +947,51 @@
         messageTimer = setTimeout(() => { messageElement.textContent = ""; }, 1450);
       }
 
+      function recordDebugThemeTap(time) {
+        if (debugMode) return;
+        if (time - debugThemeLastTapAt > 8000) debugThemeTapCount = 0;
+        debugThemeLastTapAt = time;
+        debugThemeTapCount++;
+        if (debugThemeTapCount === 7) {
+          debugMode = true;
+          debugClearButton.hidden = false;
+          debugThemeTapCount = 0;
+          showMessage("Debug mode enabled");
+        }
+      }
+
+      function clearBoardForDebug() {
+        if (!debugMode || paused || gameOver) return;
+        debugUsed = true;
+        const points = 800 * level;
+        addScore(points);
+        lines += 4;
+        level = Math.floor(lines / 10) + 1;
+        softDropHeld = false;
+        grid = emptyGrid();
+        flashRows = [];
+        flashTimer = 0;
+        dropTrail = null;
+        dropTrailTimer = 0;
+        combo = -1;
+        backToBack = false;
+        gravityElapsed = 0;
+        lockStarted = null;
+        lockElapsed = 0;
+        lockResets = 0;
+        spawn();
+        drawStaticBoard();
+        updateStats();
+        draw();
+        clearResultElement.textContent = `Debug Tetris +${points.toLocaleString()}`;
+        showMessage("Score ineligible for leaderboard");
+      }
+
       function endGame() {
         gameOver = true;
         paused = true;
-        showGuide("Game over", `Score ${score.toLocaleString()} · ${lines} lines`, "New game", true);
+        const debugNotice = debugUsed ? " · Debug clear used; score not eligible for leaderboard" : "";
+        showGuide("Game over", `Score ${score.toLocaleString()} · ${lines} lines${debugNotice}`, "New game", !debugUsed);
         menuNewGameButton.hidden = true;
         document.getElementById("pause-button").disabled = true;
       }
@@ -983,22 +1109,76 @@
           newGame(false);
           return;
         }
+        if (resumeCountdownTimer !== null) {
+          cancelResumeCountdown();
+          return;
+        }
+        if (gameStarted) {
+          let seconds = 3;
+          lockStarted = null;
+          lockElapsed = 0;
+          overlay.hidden = true;
+          countdownNumber.textContent = String(seconds);
+          countdownOverlay.hidden = false;
+          countdownCancel.focus({ preventScroll: true });
+          const tick = () => {
+            seconds--;
+            if (seconds > 0) {
+              countdownNumber.textContent = String(seconds);
+              resumeCountdownTimer = setTimeout(tick, 1000);
+            } else {
+              resumeCountdownTimer = null;
+              startPlaying();
+            }
+          };
+          resumeCountdownTimer = setTimeout(tick, 1000);
+          return;
+        }
+        startPlaying();
+      }
+
+      function startPlaying() {
+        gameStarted = true;
         paused = false;
         overlay.hidden = true;
+        countdownOverlay.hidden = true;
         document.getElementById("pause-button").textContent = "Menu";
         document.getElementById("pause-button").disabled = false;
         lastTime = 0;
       }
 
+      function cancelResumeCountdown() {
+        clearTimeout(resumeCountdownTimer);
+        resumeCountdownTimer = null;
+        countdownOverlay.hidden = true;
+        overlay.hidden = false;
+        overlayTitle.textContent = "Paused";
+        overlayDetail.textContent = "Take a breather. Your board is waiting.";
+        overlayAction.textContent = "Resume";
+        menuNewGameButton.hidden = false;
+      }
+
       function togglePause() {
         if (gameOver || paused) return;
         paused = true;
+        clearTimeout(pointer.holdTimer);
+        pointer.holdTimer = null;
+        pointer.id = null;
+        pointer.axis = null;
+        pointer.softDropTriggered = false;
+        softDropHeld = false;
+        lockStarted = null;
+        lockElapsed = 0;
         showGuide("Paused", "Take a breather. Your board is waiting.", "Resume");
         document.getElementById("pause-button").textContent = "Menu";
         lastTime = 0;
       }
 
       function newGame(showControls = false) {
+        clearTimeout(resumeCountdownTimer);
+        resumeCountdownTimer = null;
+        countdownOverlay.hidden = true;
+        gameStarted = !showControls;
         softDropHeld = false;
         holdEffectTimer = 0;
         dropTrailTimer = 0;
@@ -1015,10 +1195,12 @@
         level = 1;
         combo = -1;
         backToBack = false;
+        debugUsed = false;
         paused = true;
         gameOver = false;
         gravityElapsed = 0;
         lockStarted = null;
+        lockElapsed = 0;
         lockResets = 0;
         flashRows = [];
         if (showControls) {
@@ -1032,6 +1214,7 @@
         pauseButton.textContent = "Menu";
         pauseButton.disabled = false;
         messageElement.textContent = "";
+        clearResultElement.textContent = "";
         updateStats();
         spawn();
         drawStaticBoard();
@@ -1043,9 +1226,9 @@
         return theme === "pixel" ? 10 : boardCanvas.width / Math.min(window.devicePixelRatio || 1, MAX_RENDER_DPR) / COLS;
       }
 
-      function drawCell(context, x, y, size, ghost = false, flashing = false, type = null, placed = false) {
+      function drawCell(context, x, y, size, ghost = false, flashing = false, type = null) {
         if (theme === "pixel" && !flashing) {
-          drawRetroBlock(context, x * size, y * size, size, type, ghost, placed);
+          drawRetroBlock(context, x * size, y * size, size, type, ghost);
           return;
         }
         const inset = Math.max(1, size * .075);
@@ -1063,12 +1246,18 @@
         }
       }
 
-      function drawRetroBlock(context, x, y, size, type, ghost, placed) {
-        const color = ghost
-          ? palettes.pixel.ghost
-          : palettes.pixel.pieces[type] || palettes.pixel.block;
+      function drawRetroBlock(context, x, y, size, type, ghost) {
+        const color = palettes.pixel.pieces[type] || palettes.pixel.block;
         const pixel = Math.max(1, Math.floor(size / 8));
-        context.fillStyle = ghost || placed ? "#000000" : darkenColor(color, .52);
+        if (ghost) {
+          context.fillStyle = color;
+          context.fillRect(x + pixel, y + pixel, size - pixel * 2, pixel);
+          context.fillRect(x + pixel, y + size - pixel * 2, size - pixel * 2, pixel);
+          context.fillRect(x + pixel, y + pixel, pixel, size - pixel * 2);
+          context.fillRect(x + size - pixel * 2, y + pixel, pixel, size - pixel * 2);
+          return;
+        }
+        context.fillStyle = darkenColor(color, .52);
         context.fillRect(x, y, size, size);
         context.fillStyle = color;
         context.fillRect(x + pixel, y + pixel, size - pixel * 2, size - pixel * 2);
@@ -1161,7 +1350,7 @@
         }
         for (let y = HIDDEN_ROWS; y < ROWS; y++) {
           for (let x = 0; x < COLS; x++) {
-            if (grid[y][x]) drawCell(backgroundContext, x, y - HIDDEN_ROWS, size, false, false, grid[y][x], true);
+            if (grid[y][x]) drawCell(backgroundContext, x, y - HIDDEN_ROWS, size, false, false, grid[y][x]);
           }
         }
       }
@@ -1249,7 +1438,13 @@
       }
 
       function gravityInterval() {
-        return Math.max(70, 1000 * Math.pow(.85, level - 1));
+        const gravity = GUIDELINE_GRAVITY[Math.min(level - 1, GUIDELINE_GRAVITY.length - 1)];
+        return 1000 / (60 * gravity);
+      }
+
+      function softDropInterval() {
+        const gravity = GUIDELINE_GRAVITY[Math.min(level - 1, GUIDELINE_GRAVITY.length - 1)];
+        return 1000 / (60 * Math.min(MAX_GRAVITY, gravity * 20));
       }
 
       function fallSnapOffset() {
@@ -1266,20 +1461,21 @@
         dropTrailTimer = Math.max(0, dropTrailTimer - delta);
         if (dropTrailTimer === 0) dropTrail = null;
         if (!paused && !gameOver && current) {
-          gravityElapsed += delta;
-          const fallInterval = softDropHeld ? SOFT_DROP_INTERVAL : gravityInterval();
+          if (softDropHeld) spawnGraceRemaining = 0;
+          const graceTime = Math.min(delta, spawnGraceRemaining);
+          spawnGraceRemaining -= graceTime;
+          gravityElapsed += delta - graceTime;
+          const fallInterval = softDropHeld ? softDropInterval() : gravityInterval();
           while (gravityElapsed >= fallInterval) {
             gravityElapsed -= fallInterval;
             if (!move(0, 1, softDropHeld)) {
               gravityElapsed = 0;
-              if (lockStarted === null) lockStarted = time;
               break;
             }
             fallSnapDuration = Math.min(FALL_SNAP_DURATION, fallInterval * .8);
             fallSnapElapsed = 0;
           }
-          if (lockStarted === null && collides(current, current.x, current.y + 1)) lockStarted = time;
-          else if (lockStarted !== null && time - lockStarted >= LOCK_DELAY) lockPiece();
+          if (updateLockTimer(time) && lockElapsed >= LOCK_DELAY) lockPiece();
         }
         if (flashTimer > 0) {
           flashTimer -= delta;
@@ -1368,6 +1564,7 @@
         const elapsed = Math.max(1, event.timeStamp - pointer.startedAt);
         const hardDropDistance = Math.max(60, boardShell.clientHeight * .18);
         const fastDownwardSwipe = dy >= hardDropDistance && dy / elapsed >= HARD_DROP_SPEED;
+        const swipeThreshold = Math.max(30, boardShell.clientHeight * .075);
         softDropHeld = false;
         if (wasSoftDropHold) {
           pointer.id = null;
@@ -1377,7 +1574,7 @@
           event.preventDefault();
           return;
         }
-        const threshold = Math.max(30, boardShell.clientHeight * .075);
+        const threshold = swipeThreshold;
         if (!pointer.axis && Math.hypot(dx, dy) >= 3) {
           if (Math.abs(dy) > Math.abs(dx)) pointer.axis = "vertical";
           else pointer.axis = "horizontal";
@@ -1410,15 +1607,23 @@
         pointer.softDropTriggered = false;
       });
       themeButton.addEventListener("click", () => {
+        recordDebugThemeTap(performance.now());
         theme = theme === "modern" ? "pixel" : "modern";
         applyTheme(true);
       });
       overlayAction.addEventListener("click", resumeGame);
+      countdownCancel.addEventListener("click", cancelResumeCountdown);
       menuNewGameButton.addEventListener("click", () => newGame(false));
       scoreForm.addEventListener("submit", submitScore);
       skipScoreButton.addEventListener("click", (event) => submitScore(event, true));
+      debugClearButton.addEventListener("click", clearBoardForDebug);
       document.getElementById("pause-button").addEventListener("click", togglePause);
 
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) return;
+        if (resumeCountdownTimer !== null) cancelResumeCountdown();
+        else if (!paused && !gameOver) togglePause();
+      });
       window.addEventListener("resize", resizeCanvases);
       if ("ResizeObserver" in window) new ResizeObserver(resizeCanvases).observe(boardShell);
       newGame(true);

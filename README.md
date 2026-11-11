@@ -1,11 +1,13 @@
 # Beeffilet sites
 
-This folder contains the `beeffilet.com` root page, a touch-only Tetris page for `tetris.beeffilet.com`, and the Devo Node.js app for `devo.beeffilet.com`.
+This folder contains the `beeffilet.com` root page, the touch-only sTetris game for `tetris.beeffilet.com`, and the Devo Node.js app for `devo.beeffilet.com`.
 
 ## Root domain: beeffilet.com
 
 - `index.html` is the deliberately minimal “Hi” page.
-- `tetris.html` is a standalone, mobile-only touch Tetris game with grid-stepped falling and quick snap animation, a brief hard-drop trail, calibrated side-to-side dragging, and slow downward drags that act as a soft-drop hold. Its visual style is saved in the player's browser; scores can be submitted to the shared leaderboard through the Devo Node service API.
+- `tetris.html` is the standalone, mobile-only sTetris game with guideline gravity (capped at 20G), guideline scoring including combos, back-to-back clears, perfect clears, and drop points, grid-stepped falling and quick snap animation, a brief hard-drop trail, calibrated side-to-side dragging, and slow downward drags that act as a soft-drop hold. Tapping the style toggle seven times within eight seconds unlocks a debug action to clear the board for 800 × current-level points and four lines; using it makes the run ineligible for the leaderboard. Pixel is the default style; a player's selected style is saved in browser local storage. Scores can be submitted to the shared leaderboard through the Devo Node service API.
+- Pieces lock after 500 ms on the stack; successful grounded moves and rotations reset that timer up to 15 times per piece, and the timer pauses while airborne. New and held pieces appear immediately with a 150 ms touch-friendly grace period before gravity starts; movement and rotation remain available, and soft or hard drop bypasses the wait. Resuming a paused game shows a 3-2-1 countdown over the board and resets the lock timer; switching away from the page pauses the game. The latest clear and its awarded points, including combo and back-to-back bonuses, appear below the board.
+- Run the Tetris timing regression tests with `node --test tests/tetris-timing.test.js`.
 - `robots.txt` asks all well-behaved crawlers not to crawl the site.
 - Nginx serves these files directly from this directory. The nginx virtual-host configuration itself lives at `/etc/nginx/sites-available/beeffilet`.
 - The root-domain response also sends `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`.
