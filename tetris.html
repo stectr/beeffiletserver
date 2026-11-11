@@ -501,7 +501,7 @@
     </div>
   </main>
 
-  <span class="version-label" aria-label="Game version 2.0">v2.0</span>
+  <span class="version-label" aria-label="Game version 2.01">v2.01</span>
 
   <script>
     (() => {
@@ -905,14 +905,11 @@
         };
         const perfectClearPoints = [0, 800, 1200, 1800, 2000];
         const difficult = Boolean(spin) || count === 4;
-        const base = (perfectClear ? perfectClearPoints[count] : tables[spin || "normal"][count]) || 0;
+        const base = tables[spin || "normal"][count] || 0;
         let points = base * level;
         const isBackToBack = difficult && backToBack;
-        if (isBackToBack) {
-          points = perfectClear && count === 4
-            ? 3200 * level
-            : Math.floor(points * 1.5);
-        }
+        if (isBackToBack) points = Math.floor(points * 1.5);
+        if (perfectClear) points += perfectClearPoints[count] * level;
         if (difficult) backToBack = true;
         else backToBack = false;
         combo++;

@@ -356,12 +356,21 @@ test("clear results show actual scoring, combo, back-to-back and perfect clear",
   assert.equal(elements.get("clear-result").textContent, "Tetris · B2B +2,400 · Combo 1 +100 = +2,500");
   assert.equal(game.state().score, 4100);
   game.scoreClear(1, "T-spin", true);
-  assert.equal(elements.get("clear-result").textContent, "T-spin Single · Perfect Clear · B2B +2,400 · Combo 2 +200 = +2,600");
-  assert.equal(game.state().score, 6700);
+  assert.equal(elements.get("clear-result").textContent, "T-spin Single · Perfect Clear · B2B +4,000 · Combo 2 +200 = +4,200");
+  assert.equal(game.state().score, 8300);
   game.setState({ level: 1, combo: -1, backToBack: true, score: 0 });
   game.scoreClear(4, null, true);
   assert.equal(elements.get("clear-result").textContent, "Tetris · Perfect Clear · B2B +3,200");
   assert.equal(game.state().score, 3200);
+});
+
+test("perfect-clear points are added to regular line-clear points", () => {
+  const { game, elements } = createGame();
+  game.newGame(false);
+  game.setState({ level: 1, score: 0, combo: -1, backToBack: false });
+  game.scoreClear(3, null, true);
+  assert.equal(elements.get("clear-result").textContent, "Triple · Perfect Clear +2,300");
+  assert.equal(game.state().score, 2300);
 });
 
 test("a no-line T-spin shows its points without breaking back-to-back", () => {
