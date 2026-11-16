@@ -209,7 +209,7 @@ body.high-contrast details.further-reading{border-color:#000}
 body.high-contrast details.further-reading>summary{color:#000}
 body.high-contrast details.further-reading[open]>summary,body.high-contrast .further-reading-content{border-color:#000}
 body.high-contrast details.further-reading>summary:hover{color:#000}
-body.high-contrast body.high-contrast .appearance-option,body.high-contrast .size-option{color:#000;border-color:#000}
+body.high-contrast .appearance-option,body.high-contrast .size-option{color:#000;border-color:#000}
 body.high-contrast.black{background:#000;color:#fff}
 body.high-contrast.black h1.site,body.high-contrast.black .date,body.high-contrast.black blockquote,body.high-contrast.black blockquote cite,body.high-contrast.black h3,body.high-contrast.black footer,body.high-contrast.black nav,body.high-contrast.black .err,body.high-contrast.black hr:after{color:#fff}
 body.high-contrast.black a{color:#fff;border-color:#fff}
@@ -219,7 +219,7 @@ body.high-contrast.black details.further-reading{border-color:#fff}
 body.high-contrast.black details.further-reading>summary{color:#fff}
 body.high-contrast.black details.further-reading[open]>summary,body.high-contrast.black .further-reading-content{border-color:#fff}
 body.high-contrast.black details.further-reading>summary:hover{color:#fff}
-body.high-contrast.black body.high-contrast.black .appearance-option,body.high-contrast.black .size-option{color:#fff;border-color:#fff}
+body.high-contrast.black .appearance-option,body.high-contrast.black .size-option{color:#fff;border-color:#fff}
 `;
 
 function mainHtml(d, data, err) {

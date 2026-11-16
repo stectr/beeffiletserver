@@ -2,6 +2,33 @@
 
 This folder contains the `beeffilet.com` root page, the touch-only sTetris game for `tetris.beeffilet.com`, and the Devo Node.js app for `devo.beeffilet.com`.
 
+## Worship Notes
+
+`worship.html` is a standalone song-sheet editor for `worship.beeffilet.com`. Enter a title, key, and version, then use Add / edit lyrics to add or change lyrics directly on the sheet with chords visible; save or cancel the edits when finished. If edits would remove a chord, the editor asks before saving. Click a word and type its chord directly above it; delete the chord text to remove it. Tab and Shift+Tab move between words and the spaces between them; type chords in those spaces for pauses, and leave the next space empty to move to the next word. Lines beginning with Verse, Chorus, Bridge, or `(` are bold section cues without chord slots. Instrumental lines such as `Intro: | G / / / | A / / / |` can be included with lyrics or inserted during lyric editing; lines with at least two `|` characters are displayed as instrumental lines. The sheet uses 11-point serif text and fills each column from top to bottom. Scroll down through the editable paper pages; print or save as a PDF using the browser's print dialog. Printing uses US Letter paper, two columns per page, with the title information repeated on each page.
+
+The current sheet is saved in browser local storage on that device, not on the server or across devices. Starting a new sheet replaces the saved sheet. Print or save a PDF before clearing browser data or switching devices. Use only lyrics you have permission to reproduce.
+
+On this server, the HTTP virtual host is installed at `/etc/nginx/sites-enabled/worship.beeffilet.com.conf`. Point the `worship` DNS record at the server and configure HTTPS. For another server, add a separate Nginx virtual host:
+
+```nginx
+server {
+    listen 80;
+    server_name worship.beeffilet.com;
+
+    root /home/ubuntu/beeffiletserver;
+
+    location = / {
+        try_files /worship.html =404;
+    }
+
+    location / {
+        return 404;
+    }
+}
+```
+
+Test and reload Nginx as described below, then configure HTTPS for the new host using the same approach as the other subdomains. The HTML file is served directly, so edits do not require a Node restart. Run the editor regression tests with `node --test tests/worship.test.js`.
+
 ## Root domain: beeffilet.com
 
 - `index.html` is the deliberately minimal “Hi” page.

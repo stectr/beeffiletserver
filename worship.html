@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Worship Notes</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: #f4f4f2; color: #1c1c1a; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 960px; margin: auto; padding: 24px 16px 48px; }
+    button, input { font: inherit; color: inherit; background: white; }
+    button { cursor: pointer; border: 1px solid #c9c9c4; border-radius: 6px; padding: .55em .85em; transition: background-color .15s, border-color .15s; }
+    button:hover { background: #f1f1ef; border-color: #8b8b85; }
+    button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
+    .app-header { width: min(100%, 816px); margin: 0 auto 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand h1 { margin: 0; font-size: 1.35rem; line-height: 1.2; letter-spacing: -.03em; }
+    .brand p { margin: 3px 0 0; color: #666660; font-size: .9rem; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+    .app-header button { font-size: .9rem; font-weight: 600; }
+    .sheet { font: 11pt/1.3 Georgia, "Times New Roman", serif; }
+    .sheet-toolbar { width: min(100%, 816px); margin: 0 auto 14px; padding: 14px 18px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px 20px; border: 1px solid #deded9; border-radius: 10px; background: white; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .toolbar-copy { display: grid; gap: 3px; }
+    .toolbar-copy strong { font-size: .95rem; }
+    .toolbar-copy > span, .save-status { color: #666660; font-size: .84rem; }
+    .save-status { margin: 0; text-align: right; }
+    .save-status.error { color: #8a1f1f; }
+    .sheet-toolbar .actions { grid-column: 2; grid-row: 1 / span 2; }
+    .sheet-toolbar button { font-weight: 650; }
+    .sheet-toolbar .primary { border-color: #1c1c1a; background: #1c1c1a; color: white; }
+    .sheet-toolbar .primary:hover { background: #383835; }
+    .edit-panel { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 12px; border-top: 1px solid #e7e7e3; }
+    .edit-panel p { margin: 0; color: #555550; font-size: .9rem; }
+    .help { width: min(100%, 816px); margin: 18px auto 0; color: #575752; font-size: .88rem; }
+    .help p { margin: 0 0 8px; }
+    .help details { border-top: 1px solid #deded9; padding-top: 9px; }
+    .help summary { width: fit-content; cursor: pointer; color: #30302d; font-weight: 600; }
+    .help details p { margin-top: 8px; }
+    code { padding: .1em .3em; border-radius: 3px; background: #ebebe8; font-size: .95em; }
+    .sheet-header { height: .9in; padding-top: 1.2em; }
+    .title-row { display: flex; gap: 1.5em; }
+    .title-field { flex: 1; min-width: 0; }
+    .key-field { width: 6em; display: flex !important; gap: .3em; align-items: baseline; }
+    .key-field::before { content: "Key:"; }
+    .sheet-header label { display: block; position: relative; }
+    .sheet-header .field-label { position: absolute; bottom: 100%; left: 0; font-size: 9pt; }
+    .key-field .field-label { display: none; }
+    .sheet-header input { display: block; width: 100%; min-width: 0; border: 0; border-bottom: 1px solid black; border-radius: 0; padding: 0; }
+    .sheet-title { font-weight: bold; }
+    .version-field { margin-top: 1.3em; }
+    .paper-stack { display: flex; flex-direction: column; align-items: center; gap: 1.5em; }
+    .paper-page { width: 8.5in; height: 11in; padding: .6in; background: white; outline: 1px solid #deded9; box-shadow: 0 8px 26px #0000000c; zoom: var(--page-scale, 1); }
+    .page-slot, .lyrics-wrap { position: relative; width: 7.3in; height: 8.5in; overflow: hidden; }
+    .page-snapshot { cursor: text; }
+    #emptyState { position: absolute; top: 0; left: 0; margin: 0; }
+    .lyrics { width: 7.3in; column-count: 2; column-gap: .4in; column-fill: auto; height: 8.5in; }
+    .lyric-line { white-space: pre-wrap; break-inside: avoid; min-height: 2.6em; }
+    .lyric-line.blank { min-height: 1.3em; }
+    .lyric-line.instrumental { min-height: 1.3em; }
+    .section-cue { font-weight: bold; }
+    .lyric-line.section-cue { line-height: 1.3; padding-top: 1.3em; }
+    .word, .pause { display: inline-flex; flex-direction: column; vertical-align: bottom; max-width: 100%; }
+    .word { position: relative; padding-top: 1.3em; }
+    .word > .chord-slot { position: absolute; top: 0; left: 0; min-width: 100%; }
+    .pause-bottom { height: 1.3em; }
+    .pause:focus-within .chord-size:empty::before { content: "\00a0"; }
+    .lyric-editor { white-space: pre-wrap; overflow-wrap: break-word; line-height: 2.6; padding-top: .65em; outline: 1px solid black; outline-offset: 4px; }
+    .edit-overlay { position: absolute; top: 0; left: 0; pointer-events: none; user-select: none; }
+    .edit-chord { position: absolute; font-weight: bold; white-space: pre; }
+    .chord-slot { position: relative; font-weight: bold; line-height: 1.3; }
+    .chord-size { display: block; visibility: hidden; white-space: pre; }
+    .chord-input { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; border: 0; border-radius: 0; padding: 0; background: transparent; font: inherit; line-height: inherit; }
+    .lyric-word { padding: 0; border: 0; background: transparent; font: inherit; line-height: 1.3; text-align: left; }
+    .lyric-word:hover { text-decoration: underline; }
+    .chord-input:focus-visible, .lyric-word:focus-visible { outline: 1px solid black; }
+    .error { font-weight: bold; }
+    .print-pages { display: none; }
+    .print-staging { position: absolute; left: -10000px; top: 0; width: 7.3in; visibility: hidden; }
+    @media print {
+      @page { size: letter; margin: .6in; }
+      main { max-width: none; margin: 0; padding: 0; }
+      .app-header, .sheet, .help { display: none; }
+      .sheet-header .field-label { display: none; }
+      .sheet-header input { border-color: transparent; padding: 0; }
+      .sheet-header input::placeholder { color: transparent; }
+      .print-pages { display: block; }
+      .print-page { break-after: page; }
+      .print-page:last-child { break-after: auto; }
+      .print-page .lyrics-wrap { width: 7.3in; overflow: hidden; }
+      .print-page .lyrics { width: 7.3in; }
+      .chord-input:focus-visible, .lyric-word:focus-visible { outline: 0; }
+    }
+    @media (max-width: 600px) {
+      main { padding: 18px 12px 36px; }
+      .app-header { align-items: flex-start; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+      .app-header .actions { width: 100%; }
+      .app-header button { flex: 1; }
+      .sheet-toolbar { grid-template-columns: 1fr; padding: 13px 14px; gap: 10px; }
+      .sheet-toolbar .actions { grid-column: 1; grid-row: auto; }
+      .save-status { text-align: left; }
+      .edit-panel { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="app-header">
+      <div class="brand">
+        <h1>Worship Notes</h1>
+        <p>Song sheet editor</p>
+      </div>
+      <div class="actions" aria-label="Sheet actions">
+        <button id="newSheet" type="button">New sheet</button>
+        <button id="printSheet" type="button">Print / PDF</button>
+      </div>
+    </header>
+    <article class="sheet" aria-label="Song sheet">
+      <div class="sheet-toolbar">
+        <div class="toolbar-copy">
+          <strong>Song sheet</strong>
+          <span>Add lyrics or make edits here; chords stay visible on the page.</span>
+        </div>
+        <div class="actions">
+          <span id="editActions">
+            <button id="editLyrics" class="primary" type="button">Add / edit lyrics</button>
+          </span>
+        </div>
+        <p id="saveStatus" class="save-status" role="status" aria-live="polite"></p>
+        <section id="editPanel" class="edit-panel" hidden>
+          <p>Edit the lyrics directly on the sheet below. Chords remain visible.</p>
+          <div class="actions">
+            <button id="saveLyrics" type="button">Save lyrics</button>
+            <button id="cancelLyrics" type="button">Cancel</button>
+          </div>
+        </section>
+      </div>
+      <div class="paper-stack" id="paperStack">
+        <div class="paper-page">
+          <div class="sheet-header" id="sheetHeader">
+            <div class="title-row">
+              <label class="title-field"><span class="field-label">Title</span><input class="sheet-title" id="title" type="text" placeholder="Song title"></label>
+              <label class="key-field"><span class="field-label">Key</span><input id="songKey" type="text" placeholder="e.g. G"></label>
+            </div>
+            <label class="version-field"><span class="field-label">Version</span><input id="version" type="text" placeholder="Artist or version"></label>
+          </div>
+          <div class="page-slot">
+            <div class="lyrics-wrap" id="liveWrap">
+              <p id="emptyState">Add lyrics to start.</p>
+              <div class="lyrics" id="lyrics"></div>
+              <div class="lyrics lyric-editor" id="lyricsEditor" contenteditable="plaintext-only" role="textbox" aria-label="Edit lyrics" aria-multiline="true" spellcheck="false" hidden></div>
+              <div class="edit-overlay" id="editOverlay" aria-hidden="true" hidden></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+    <section class="help" aria-label="Song sheet help">
+      <p>Click a word and type its chord. Tab moves through words and pauses; Shift+Tab moves back. Delete chord text to remove it.</p>
+      <details>
+        <summary>Formatting and page tips</summary>
+        <p>Lines starting with Verse, Chorus, Bridge, or ( are bold section cues. For an instrumental line, include bar lines, e.g. <code>Intro: | G / / / | A / / / |</code>.</p>
+        <p>Scroll down to see the next page.</p>
+      </details>
+    </section>
+    <div class="print-pages" id="printPages"></div>
+  </main>
+  <script>
+    (() => {
+      const key = "worship-notes-sheet-v1";
+      const $ = (id) => document.getElementById(id);
+      const title = $("title"), lyrics = $("lyrics"), status = $("saveStatus");
+      let sheet = { title: "", songKey: "", version: "", text: "", chords: {}, pauses: {} };
+      let editing = false;
+      let draft = null;
+      let priorStatus = null;
+      let navigation = [];
+      let activePage = 0, previewPending = false;
+      const copyPauses = () => Object.fromEntries(
+        Object.entries(sheet.pauses).map(([position, values]) => [position, [...values]])
+      );
+      const isSectionCue = (line) => /^\s*(?:(?:verse|chorus|bridge)(?=$|[\W\d_])|\()/i.test(line);
+
+      function spaceChords() {
+        const style = getComputedStyle(lyrics);
+        const scale = lyrics.getBoundingClientRect().width / parseFloat(style.width);
+        const spacing = parseFloat(style.fontSize) * .4 * scale;
+        for (const entry of navigation) entry.element.style.marginRight = "";
+        let previous = null;
+        for (const entry of navigation) {
+          if (!entry.input.value) continue;
+          const range = document.createRange();
+          range.selectNodeContents(entry.size);
+          let rect = range.getBoundingClientRect();
+          if (previous && previous.line === entry.line &&
+              Math.abs(rect.top - previous.rect.top) < scale && rect.left >= previous.rect.left) {
+            const missing = spacing - (rect.left - previous.rect.right);
+            if (missing > .01) {
+              previous.element.style.marginRight = `${missing / scale}px`;
+              rect = range.getBoundingClientRect();
+            }
+          }
+          previous = { line: entry.line, element: entry.element, rect };
+        }
+      }
+
+      function pageMetrics() {
+        const content = editing ? $("lyricsEditor") : lyrics;
+        const style = getComputedStyle(content);
+        const width = parseFloat(style.width), gap = parseFloat(style.columnGap);
+        const paddingLeft = parseFloat(style.paddingLeft), paddingRight = parseFloat(style.paddingRight);
+        const step = width - paddingLeft - paddingRight + gap;
+        return { content, width, gap, step,
+          count: Math.max(1, Math.ceil((content.scrollWidth - paddingLeft + gap - 1) / step)) };
+      }
+
+      function applyPageOffset(wrap, index, step) {
+        const shift = `translateX(-${index * step}px)`;
+        for (const element of wrap.querySelectorAll(".lyrics, .edit-overlay")) element.style.transform = shift;
+      }
+
+      function selectionOffsets(editor) {
+        const selection = window.getSelection();
+        if (!selection || !selection.rangeCount || !editor.contains(selection.anchorNode) ||
+            !editor.contains(selection.focusNode)) return null;
+        return { anchor: editorOffset(editor, selection.anchorNode, selection.anchorOffset),
+          focus: editorOffset(editor, selection.focusNode, selection.focusOffset) };
+      }
+
+      function editorOffset(editor, node, offset) {
+        const positions = editorContent(editor).positions;
+        const target = document.createRange();
+        target.setStart(node, offset);
+        target.collapse(true);
+        const probe = document.createRange();
+        for (let index = 0; index < positions.length; index++) {
+          const point = positions[index];
+          if (!point) continue;
+          probe.setStart(point.node, point.index);
+          probe.collapse(true);
+          if (probe.compareBoundaryPoints(Range.START_TO_START, target) >= 0) return index;
+        }
+        return positions.length;
+      }
+
+      function restoreSelection(offsets) {
+        if (!offsets) return;
+        const editor = $("lyricsEditor"), positions = editorContent().positions;
+        function point(offset) {
+          if (positions[offset]) return { node: positions[offset].node, index: positions[offset].index };
+          for (let index = Math.min(offset - 1, positions.length - 1); index >= 0; index--) {
+            if (positions[index]) return { node: positions[index].node, index: positions[index].index + 1 };
+          }
+          return { node: editor, index: 0 };
+        }
+        const anchor = point(offsets.anchor), focus = point(offsets.focus);
+        editor.focus({ preventScroll: true });
+        window.getSelection().setBaseAndExtent(anchor.node, anchor.index, focus.node, focus.index);
+      }
+
+      function snapshotFor(slot, index, step) {
+        const snapshot = $("liveWrap").cloneNode(true);
+        snapshot.removeAttribute("id");
+        snapshot.classList.add("page-snapshot");
+        snapshot.setAttribute("aria-hidden", "true");
+        snapshot.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+        snapshot.querySelectorAll("input, button").forEach((element) => { element.tabIndex = -1; });
+        const cloneEditor = snapshot.querySelector(".lyric-editor");
+        cloneEditor.removeAttribute("contenteditable");
+        applyPageOffset(snapshot, index, step);
+        snapshot.addEventListener("pointerdown", (event) => {
+          if (editing) {
+            let range = document.caretRangeFromPoint?.(event.clientX, event.clientY);
+            if (!range && document.caretPositionFromPoint) {
+              const position = document.caretPositionFromPoint(event.clientX, event.clientY);
+              if (position) {
+                range = document.createRange();
+                range.setStart(position.offsetNode, position.offset);
+                range.collapse(true);
+              }
+            }
+            if (!range || !cloneEditor.contains(range.startContainer)) return;
+            const offset = editorOffset(cloneEditor, range.startContainer, range.startOffset);
+            event.preventDefault();
+            activatePage(index, step, false);
+            restoreSelection({ anchor: offset, focus: offset });
+          } else {
+            const target = event.target.closest(".chord-input, .lyric-word");
+            if (!target) return;
+            const input = target.classList.contains("chord-input") ? target :
+              target.closest(".word")?.querySelector(".chord-input");
+            const entry = input && navigation[Number(input.dataset.nav)];
+            if (!entry) return;
+            event.preventDefault();
+            activatePage(index, step, false);
+            entry.input.focus({ preventScroll: true });
+            entry.input.select();
+          }
+          schedulePreview();
+        });
+        slot.replaceChildren(snapshot);
+      }
+
+      function activatePage(index, step, preserveFocus = true) {
+        if (index === activePage) return;
+        const stack = $("paperStack"), live = $("liveWrap");
+        const focused = live.contains(document.activeElement) ? document.activeElement : null;
+        const selection = focused === $("lyricsEditor") ? selectionOffsets(focused) : null;
+        const inputSelection = focused instanceof HTMLInputElement ?
+          [focused.selectionStart, focused.selectionEnd] : null;
+        const oldSlot = stack.children[activePage].querySelector(".page-slot");
+        const nextSlot = stack.children[index].querySelector(".page-slot");
+        nextSlot.replaceChildren(live);
+        applyPageOffset(live, index, step);
+        snapshotFor(oldSlot, activePage, step);
+        activePage = index;
+        if (preserveFocus && focused) {
+          if (selection) restoreSelection(selection);
+          else {
+            focused.focus({ preventScroll: true });
+            if (inputSelection && inputSelection[0] !== null) focused.setSelectionRange(...inputSelection);
+          }
+          stack.children[index].scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+      }
+
+      function focusedPage(metrics) {
+        const live = $("liveWrap"), focused = document.activeElement;
+        if (!live.contains(focused)) return activePage;
+        let rect;
+        if (focused === $("lyricsEditor")) {
+          const selection = window.getSelection();
+          if (!selection || !selection.rangeCount || !focused.contains(selection.focusNode)) return activePage;
+          const range = document.createRange();
+          range.setStart(selection.focusNode, selection.focusOffset);
+          range.collapse(true);
+          rect = range.getBoundingClientRect();
+          if (!rect.height) return activePage;
+        } else {
+          rect = focused.getBoundingClientRect();
+        }
+        const base = metrics.content.getBoundingClientRect();
+        const scale = base.width / metrics.width;
+        return Math.max(0, Math.min(metrics.count - 1, Math.floor((rect.left - base.left + .5) / (metrics.step * scale))));
+      }
+
+      function syncPreview() {
+        const stack = $("paperStack"), live = $("liveWrap"), header = $("sheetHeader");
+        if (!(editing ? $("lyricsEditor") : lyrics).getClientRects().length) return;
+        const scale = Math.min(1, Math.max(.25, (document.documentElement.clientWidth - 32) / 816));
+        stack.style.setProperty("--page-scale", String(scale));
+        if (!editing) spaceChords();
+        const metrics = pageMetrics();
+        while (stack.children.length < metrics.count) {
+          const page = document.createElement("div"), slot = document.createElement("div");
+          page.className = "paper-page";
+          slot.className = "page-slot";
+          page.append(header.cloneNode(true), slot);
+          stack.append(page);
+        }
+        const target = Math.min(metrics.count - 1, focusedPage(metrics));
+        if (target !== activePage) activatePage(target, metrics.step);
+        while (stack.children.length > metrics.count) stack.lastElementChild.remove();
+        applyPageOffset(live, activePage, metrics.step);
+        navigation.forEach((entry, index) => { entry.input.dataset.nav = String(index); });
+        for (let index = 0; index < stack.children.length; index++) {
+          const page = stack.children[index];
+          if (index) {
+            const copy = header.cloneNode(true);
+            copy.setAttribute("aria-hidden", "true");
+            copy.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+            copy.querySelectorAll("input").forEach((element) => { element.tabIndex = -1; element.readOnly = true; });
+            page.firstElementChild.replaceWith(copy);
+          }
+          if (index !== activePage) snapshotFor(page.querySelector(".page-slot"), index, metrics.step);
+        }
+      }
+
+      function schedulePreview() {
+        if (previewPending) return;
+        previewPending = true;
+        requestAnimationFrame(() => { previewPending = false; syncPreview(); });
+      }
+
+      function save() {
+        try {
+          localStorage.setItem(key, JSON.stringify(sheet));
+          status.className = "save-status";
+          status.textContent = "Saved on this device";
+        } catch (error) {
+          console.error("Could not save song sheet:", error);
+          status.className = "save-status error";
+          status.textContent = "Could not save on this device. Print or save a PDF to keep your work.";
+        }
+        if (editing) priorStatus = { className: status.className, text: status.textContent };
+        schedulePreview();
+      }
+
+      function chordSlot(value, label, onInput, entry) {
+        const slot = document.createElement("span");
+        slot.className = "chord-slot";
+        slot.setAttribute("contenteditable", "false");
+        const size = document.createElement("span");
+        size.className = "chord-size";
+        size.setAttribute("aria-hidden", "true");
+        size.textContent = value || (entry.kind === "word" ? "\u00a0" : "");
+        entry.size = size;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "chord-input";
+        input.maxLength = 40;
+        input.autocomplete = "off";
+        input.placeholder = " ";
+        input.value = value;
+        input.setAttribute("aria-label", label);
+        if (entry.kind === "gap") input.tabIndex = -1;
+        entry.input = input;
+        input.addEventListener("input", () => {
+          size.textContent = input.value || (entry.kind === "word" ? "\u00a0" : "");
+          onInput(input.value);
+          save();
+        });
+        input.addEventListener("keydown", (event) => {
+          if (event.key !== "Tab" || event.ctrlKey || event.altKey || event.metaKey) return;
+          let index = navigation.indexOf(entry);
+          if (!event.shiftKey && entry.kind === "gap" && input.value &&
+              (!navigation[index + 1] || navigation[index + 1].group !== entry.group)) {
+            addPause(entry.group, "");
+          }
+          if (event.shiftKey && entry.kind === "gap" && input.value &&
+              (!navigation[index - 1] || navigation[index - 1].group !== entry.group)) {
+            addPause(entry.group, "", true);
+            index = navigation.indexOf(entry);
+          }
+          let next = index + (event.shiftKey ? -1 : 1);
+          while (navigation[next] && navigation[next].kind === "gap" && !navigation[next].input.value) {
+            const candidate = navigation[next];
+            const crossingLine = candidate.line !== entry.line;
+            const isExtraEmpty = entry.kind === "gap" && !input.value && candidate.group === entry.group;
+            if (!crossingLine && !isExtraEmpty) break;
+            next += event.shiftKey ? -1 : 1;
+          }
+          if (!navigation[next]) return;
+          event.preventDefault();
+          navigation[next].input.focus();
+          navigation[next].input.select();
+          schedulePreview();
+        });
+        input.addEventListener("focus", schedulePreview);
+        slot.append(size, input);
+        return slot;
+      }
+
+      function addPause(group, value, atStart = false) {
+        const pause = document.createElement("span");
+        pause.className = "pause";
+        pause.setAttribute("contenteditable", "false");
+        const entry = { kind: "gap", line: group.line, group };
+        entry.element = pause;
+        const slot = chordSlot(value, "Chord in pause", () => {
+          const values = group.entries.map((item) => item.input.value).filter(Boolean);
+          if (values.length) sheet.pauses[group.position] = values;
+          else delete sheet.pauses[group.position];
+        }, entry);
+        const bottom = document.createElement("span");
+        bottom.className = "pause-bottom";
+        pause.append(slot, bottom);
+        const first = group.entries[0], last = group.entries[group.entries.length - 1];
+        const index = atStart && first ? navigation.indexOf(first) :
+          last ? navigation.indexOf(last) + 1 : navigation.length;
+        if (atStart) {
+          group.element.insertBefore(pause, group.element.firstChild);
+          group.entries.unshift(entry);
+        } else {
+          group.element.append(pause);
+          group.entries.push(entry);
+        }
+        navigation.splice(index, 0, entry);
+      }
+
+      function renderGap(row, position, line) {
+        const groupElement = document.createElement("span");
+        groupElement.className = "pause-group";
+        groupElement.setAttribute("contenteditable", "false");
+        groupElement.setAttribute("data-position", String(position));
+        const group = { element: groupElement, position, line, entries: [] };
+        (sheet.pauses[position] || []).forEach((value) => addPause(group, value));
+        addPause(group, "");
+        row.append(groupElement);
+      }
+
+      function render() {
+        lyrics.hidden = editing;
+        $("lyricsEditor").hidden = !editing;
+        $("editOverlay").hidden = !editing;
+        $("emptyState").hidden = !!sheet.text || editing;
+        $("editActions").hidden = editing;
+        if (editing) { schedulePreview(); return; }
+        lyrics.replaceChildren();
+        navigation = [];
+        let offset = 0;
+        sheet.text.split("\n").forEach((line, lineIndex) => {
+          const row = document.createElement("div");
+          row.className = "lyric-line" + (line ? "" : " blank");
+          const cue = isSectionCue(line), instrumental = /\|.*\|/.test(line);
+          if (cue || instrumental) {
+            if (cue) row.className += " section-cue";
+            if (instrumental) row.className += " instrumental";
+            row.textContent = line;
+            lyrics.append(row);
+            offset += line.length + 1;
+            return;
+          }
+          if (line.trim()) renderGap(row, offset, lineIndex);
+          for (const match of line.matchAll(/\s+|\S+/g)) {
+            if (/^\s+$/.test(match[0])) {
+              const space = document.createElement("span");
+              space.textContent = match[0];
+              row.append(space);
+            } else {
+              const position = offset + match.index;
+              const chord = sheet.chords[position] || "";
+              const word = document.createElement("span");
+              word.className = "word";
+              word.setAttribute("data-position", String(position));
+              const entry = { kind: "word", line: lineIndex };
+              entry.element = word;
+              const slot = chordSlot(chord, `Chord above ${match[0]}`, (value) => {
+                if (value) sheet.chords[position] = value;
+                else delete sheet.chords[position];
+              }, entry);
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "lyric-word";
+              button.textContent = match[0];
+              button.setAttribute("aria-label", `Edit chord above ${match[0]}`);
+              button.tabIndex = -1;
+              button.addEventListener("click", () => {
+                entry.input.focus();
+                entry.input.select();
+              });
+              navigation.push(entry);
+              word.append(slot, button);
+              row.append(word);
+              renderGap(row, position + match[0].length, lineIndex);
+            }
+          }
+          lyrics.append(row);
+          offset += line.length + 1;
+        });
+        schedulePreview();
+      }
+
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved !== null) {
+          const parsed = JSON.parse(saved);
+          if (!parsed || typeof parsed.title !== "string" || typeof parsed.text !== "string" ||
+              (parsed.songKey !== undefined && typeof parsed.songKey !== "string") ||
+              (parsed.version !== undefined && typeof parsed.version !== "string") ||
+              (parsed.pauses !== undefined && (!parsed.pauses || typeof parsed.pauses !== "object" ||
+                Array.isArray(parsed.pauses) || Object.entries(parsed.pauses).some(([position, values]) =>
+                  !/^\d+$/.test(position) || !Array.isArray(values) || values.some((value) => typeof value !== "string" || !value)))) ||
+              !parsed.chords || typeof parsed.chords !== "object" || Array.isArray(parsed.chords) ||
+              Object.entries(parsed.chords).some(([position, chord]) => !/^\d+$/.test(position) || typeof chord !== "string")) {
+            throw new Error("Saved song sheet has an invalid format");
+          }
+          sheet = { ...parsed, songKey: parsed.songKey ?? "", version: parsed.version ?? "", pauses: parsed.pauses ?? {} };
+        }
+        status.textContent = "Saved on this device";
+      } catch (error) {
+        console.error("Could not load song sheet:", error);
+        status.className = "save-status error";
+        status.textContent = "Could not load your saved sheet. Changes may replace it.";
+      }
+      title.value = sheet.title;
+      $("songKey").value = sheet.songKey;
+      $("version").value = sheet.version;
+      render();
+
+      title.addEventListener("input", () => { sheet.title = title.value; save(); });
+      $("songKey").addEventListener("input", () => { sheet.songKey = $("songKey").value; save(); });
+      $("version").addEventListener("input", () => { sheet.version = $("version").value; save(); });
+      function editorContent(editor = $("lyricsEditor")) {
+        let text = "";
+        const positions = [];
+        function newline() { text += "\n"; positions.push(null); }
+        function walk(node) {
+          if (node.nodeType === 3) {
+            for (let index = 0; index < node.data.length; index++) {
+              text += node.data[index];
+              positions.push({ node, index });
+            }
+            return;
+          }
+          if (node.nodeType !== 1) return;
+          if (node.tagName === "BR") {
+            if (node.parentNode.childNodes.length > 1) newline();
+            return;
+          }
+          let previous = false;
+          for (const child of node.childNodes) {
+            const block = child.nodeType === 1 && (child.tagName === "DIV" || child.tagName === "P");
+            if (block && previous) newline();
+            walk(child);
+            if (block || child.nodeType === 3 && child.data.length || child.nodeType === 1) previous = true;
+          }
+        }
+        walk(editor);
+        return { text, positions };
+      }
+
+      function wordPositions(text, includeCues = false) {
+        const words = [], boundaries = new Set();
+        let offset = 0;
+        for (const line of text.split("\n")) {
+          const cue = isSectionCue(line);
+          if (line.trim() && !/\|.*\|/.test(line) && (!cue || includeCues)) {
+            boundaries.add(offset);
+            for (const match of line.matchAll(/\S+/g)) {
+              const start = offset + match.index, end = start + match[0].length;
+              words.push({ start, end, cue });
+              boundaries.add(end);
+            }
+          }
+          offset += line.length + 1;
+        }
+        return { words, boundaries };
+      }
+
+      function updateDraft(text) {
+        const old = draft.text;
+        if (text === old) return;
+        if (text === sheet.text) {
+          draft = { text, chords: { ...sheet.chords }, pauses: copyPauses(), lost: 0 };
+          return;
+        }
+        let prefix = 0, suffix = 0;
+        while (prefix < old.length && prefix < text.length && old[prefix] === text[prefix]) prefix++;
+        while (suffix < old.length - prefix && suffix < text.length - prefix &&
+               old[old.length - 1 - suffix] === text[text.length - 1 - suffix]) suffix++;
+        const oldWords = wordPositions(old, true).words;
+        const { words, boundaries } = wordPositions(text, true);
+        const oldLyricBoundaries = wordPositions(old).boundaries;
+        const lyricBoundaries = wordPositions(text).boundaries;
+        const delta = text.length - old.length, chords = {}, pauses = {};
+        for (const [position, chord] of Object.entries(draft.chords)) {
+          const word = oldWords.find((item) => item.start === Number(position));
+          if (!word) { draft.lost++; continue; }
+          let marker;
+          if (word.end <= prefix) marker = word.start;
+          else if (word.start >= old.length - suffix) marker = word.start + delta;
+          else if (word.start < prefix) marker = word.start;
+          else if (word.end > old.length - suffix) marker = word.end - 1 + delta;
+          const target = words.find((item) => marker !== undefined && item.start <= marker && marker < item.end);
+          if (!target || (target.cue && !word.cue) || chords[target.start]) { draft.lost++; continue; }
+          chords[target.start] = chord;
+        }
+        for (const [position, values] of Object.entries(draft.pauses)) {
+          const oldPosition = Number(position);
+          const inserted = text.slice(prefix, text.length - suffix);
+          const extendsWord = oldPosition === prefix && oldPosition > 0 && delta > 0 &&
+            /\S/.test(old[oldPosition - 1]) && /^\S/.test(inserted);
+          const target = extendsWord ? oldPosition + delta : oldPosition <= prefix ? oldPosition :
+            oldPosition >= old.length - suffix ? oldPosition + delta : -1;
+          if (!boundaries.has(target) || (!lyricBoundaries.has(target) && oldLyricBoundaries.has(oldPosition))) {
+            draft.lost++;
+            continue;
+          }
+          pauses[target] = [...(pauses[target] || []), ...values];
+        }
+        draft.text = text;
+        draft.chords = chords;
+        draft.pauses = pauses;
+      }
+
+      function updateOverlay(content) {
+        const editor = $("lyricsEditor"), overlay = $("editOverlay");
+        overlay.replaceChildren();
+        const style = getComputedStyle(editor);
+        const measure = document.createElement("canvas").getContext("2d");
+        if (!measure) {
+          status.className = "save-status error";
+          status.textContent = "Could not display chords while editing. Cancel to return to the saved sheet.";
+          return false;
+        }
+        measure.font = `bold ${style.fontSize} ${style.fontFamily}`;
+        const chordWidth = (text) => measure.measureText(text).width;
+        const { words, boundaries } = wordPositions(content.text);
+        const spacing = parseFloat(style.fontSize) * .4;
+        let leadingWidth = 0, pauseWidth = 0;
+        for (const [position, values] of Object.entries(draft.pauses)) {
+          if (!boundaries.has(Number(position))) continue;
+          const width = chordWidth(values.join("   "));
+          const start = Number(position);
+          if (start === 0 || content.text[start - 1] === "\n") leadingWidth = Math.max(leadingWidth, width);
+          else if (words.some((word) => word.start >= start && !content.text.slice(start, word.start).includes("\n"))) {
+            pauseWidth = Math.max(pauseWidth, width);
+          }
+        }
+        const baseSpacing = pauseWidth ? pauseWidth + spacing : 0;
+        editor.style.wordSpacing = `${baseSpacing}px`;
+        editor.style.paddingLeft = `${leadingWidth ? leadingWidth + spacing : 0}px`;
+        editor.style.columnGap = `${Math.max(38.4, leadingWidth + spacing)}px`;
+        const base = editor.getBoundingClientRect();
+        const scale = base.width / parseFloat(style.width);
+        let previous = null, extraSpacing = 0;
+        for (const word of words) {
+          const chord = draft.chords[word.start], point = content.positions[word.start];
+          if (!chord || !point) continue;
+          const range = document.createRange();
+          range.setStart(point.node, point.index);
+          range.setEnd(point.node, point.index + 1);
+          const rect = range.getBoundingClientRect();
+          if (previous && !content.text.slice(previous.start, word.start).includes("\n") &&
+              Math.abs(rect.top - previous.rect.top) < scale && rect.left >= previous.rect.left) {
+            const missing = chordWidth(previous.chord) + spacing - (rect.left - previous.rect.left) / scale;
+            const spaces = (content.text.slice(previous.start, word.start).match(/ /g) || []).length || 1;
+            extraSpacing = Math.max(extraSpacing, missing / spaces);
+          }
+          previous = { start: word.start, chord, rect };
+        }
+        editor.style.wordSpacing = `${baseSpacing + Math.max(0, extraSpacing)}px`;
+        const lineHeight = parseFloat(style.fontSize) * 1.3;
+        function draw(value, position, after) {
+          let index = position;
+          if (after && position > 0 && content.text[position - 1] !== "\n") index--;
+          const point = content.positions[index];
+          if (!point) return;
+          const range = document.createRange();
+          range.setStart(point.node, point.index);
+          range.setEnd(point.node, point.index + 1);
+          const rect = range.getBoundingClientRect();
+          const chord = document.createElement("span");
+          chord.className = "edit-chord";
+          chord.textContent = value;
+          let left = ((after && index < position ? rect.right : rect.left) - base.left) / scale;
+          if (after && index === position) left -= chordWidth(value) + spacing;
+          if (after && index < position) {
+            const word = words.find((item) => item.end === position);
+            const previous = word && draft.chords[word.start];
+            const start = word && content.positions[word.start];
+            if (previous && start) {
+              const startRange = document.createRange();
+              startRange.setStart(start.node, start.index);
+              startRange.setEnd(start.node, start.index + 1);
+              left = Math.max(left, (startRange.getBoundingClientRect().left - base.left) / scale + chordWidth(previous) + spacing);
+            }
+          }
+          chord.style.left = `${left}px`;
+          chord.style.top = `${(rect.top - base.top) / scale - lineHeight}px`;
+          overlay.append(chord);
+          return chord;
+        }
+        function drawChords() {
+          overlay.replaceChildren();
+          const drawn = [];
+          for (const word of words) {
+            const value = draft.chords[word.start];
+            if (value) drawn.push({ position: word.start, after: false, element: draw(value, word.start, false) });
+          }
+          for (const [position, values] of Object.entries(draft.pauses)) {
+            if (boundaries.has(Number(position))) {
+              drawn.push({ position: Number(position), after: true, element: draw(values.join("   "), Number(position), true) });
+            }
+          }
+          return drawn.filter((item) => item.element).sort((a, b) => a.position - b.position || Number(b.after) - Number(a.after));
+        }
+        const drawn = drawChords();
+        let correction = 0;
+        for (let index = 1; index < drawn.length; index++) {
+          const previousChord = drawn[index - 1], current = drawn[index];
+          const between = content.text.slice(previousChord.position, current.position);
+          if (between.includes("\n")) continue;
+          const spaces = (between.match(/ /g) || []).length;
+          if (!spaces) continue;
+          const before = previousChord.element.getBoundingClientRect(), after = current.element.getBoundingClientRect();
+          if (Math.abs(after.top - before.top) < scale && after.left >= before.left) {
+            correction = Math.max(correction, (spacing - (after.left - before.right) / scale) / spaces);
+          }
+        }
+        if (correction > 0) {
+          editor.style.wordSpacing = `${baseSpacing + Math.max(0, extraSpacing) + correction}px`;
+          drawChords();
+        }
+        return true;
+      }
+
+      $("lyricsEditor").addEventListener("input", () => {
+        const content = editorContent();
+        updateDraft(content.text);
+        if (!updateOverlay(content)) return;
+        const warning = draft.lost ? "Some chords may be removed; review before saving." : "Editing lyrics; save or cancel.";
+        status.textContent = priorStatus.className.includes("error") ? `${priorStatus.text} ${warning}` : warning;
+        schedulePreview();
+      });
+      $("lyricsEditor").addEventListener("keyup", schedulePreview);
+      $("lyricsEditor").addEventListener("click", schedulePreview);
+      $("editLyrics").addEventListener("click", () => {
+        priorStatus = { className: status.className, text: status.textContent };
+        editing = true;
+        draft = { text: sheet.text, chords: { ...sheet.chords }, pauses: copyPauses(), lost: 0 };
+        const editor = $("lyricsEditor");
+        editor.replaceChildren();
+        sheet.text.split("\n").forEach((line, index) => {
+          if (index) editor.append(document.createTextNode("\n"));
+          if (isSectionCue(line)) {
+            const cue = document.createElement("span");
+            cue.className = "section-cue";
+            cue.textContent = line;
+            editor.append(cue);
+          } else {
+            editor.append(document.createTextNode(line));
+          }
+        });
+        $("editPanel").hidden = false;
+        render();
+        updateOverlay(editorContent());
+        $("lyricsEditor").focus();
+      });
+      $("cancelLyrics").addEventListener("click", () => {
+        editing = false;
+        draft = null;
+        $("editPanel").hidden = true;
+        render();
+        status.className = priorStatus.className;
+        status.textContent = priorStatus.text;
+        priorStatus = null;
+      });
+      $("saveLyrics").addEventListener("click", () => {
+        updateDraft(editorContent().text);
+        if (draft.lost && !confirm("Some chords belong to removed or split lyrics and cannot be kept. Save anyway?")) return;
+        sheet.text = draft.text;
+        sheet.chords = draft.chords;
+        sheet.pauses = draft.pauses;
+        editing = false;
+        draft = null;
+        priorStatus = null;
+        $("editPanel").hidden = true;
+        save();
+        render();
+      });
+      $("newSheet").addEventListener("click", () => {
+        if ((sheet.text || sheet.title || sheet.songKey || sheet.version) && !confirm("Start a new sheet? This will replace the sheet saved on this device.")) return;
+        sheet = { title: "", songKey: "", version: "", text: "", chords: {}, pauses: {} };
+        title.value = "";
+        $("songKey").value = "";
+        $("version").value = "";
+        $("editPanel").hidden = true;
+        editing = false;
+        draft = null;
+        priorStatus = null;
+        save();
+        render();
+      });
+      $("printSheet").addEventListener("click", () => {
+        if (!$("editPanel").hidden) { alert("Save or cancel your lyric edits before printing."); return; }
+        spaceChords();
+        window.print();
+      });
+      window.addEventListener("beforeprint", () => {
+        const pages = $("printPages");
+        pages.replaceChildren();
+        if (editing) {
+          const warning = document.createElement("p");
+          warning.textContent = "Save or cancel your lyric edits before printing.";
+          pages.append(warning);
+          return;
+        }
+        const staging = document.createElement("div");
+        staging.className = "print-staging";
+        const measuredLyrics = lyrics.cloneNode(true);
+        measuredLyrics.style.width = "7.3in";
+        staging.append(measuredLyrics);
+        document.body.append(staging);
+        let width, gap, count;
+        try {
+          width = measuredLyrics.getBoundingClientRect().width;
+          gap = parseFloat(getComputedStyle(measuredLyrics).columnGap);
+          count = Math.max(1, Math.ceil((measuredLyrics.scrollWidth + gap - 1) / (width + gap)));
+        } finally {
+          staging.remove();
+        }
+        for (let index = 0; index < count; index++) {
+          const printPage = document.createElement("div");
+          printPage.className = "print-page";
+          const header = document.querySelector(".sheet-header").cloneNode(true);
+          header.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+          const wrap = document.createElement("div");
+          wrap.className = "lyrics-wrap";
+          const content = lyrics.cloneNode(true);
+          content.removeAttribute("id");
+          content.style.transform = `translateX(-${index * (width + gap)}px)`;
+          wrap.append(content);
+          printPage.append(header, wrap);
+          pages.append(printPage);
+        }
+      });
+      window.addEventListener("afterprint", () => { $("printPages").replaceChildren(); schedulePreview(); });
+      window.addEventListener("resize", () => { if (editing) updateOverlay(editorContent()); schedulePreview(); });
+      document.addEventListener("selectionchange", () => {
+        if (editing && document.activeElement === $("lyricsEditor")) schedulePreview();
+      });
+      window.addEventListener("beforeunload", (event) => {
+        if (editing && draft && draft.text !== sheet.text) {
+          event.preventDefault();
+          event.returnValue = "";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

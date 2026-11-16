@@ -1,1 +1,65 @@
-[]
+[
+  {
+    "name": "avery",
+    "score": 11229907,
+    "lines": 1236,
+    "level": 124,
+    "date": "2026-11-14T02:01:01.989Z"
+  },
+  {
+    "name": "avery",
+    "score": 2270435,
+    "lines": 550,
+    "level": 56,
+    "date": "2026-11-11T19:28:05.387Z"
+  },
+  {
+    "name": "avery",
+    "score": 565047,
+    "lines": 249,
+    "level": 25,
+    "date": "2026-11-11T18:52:11.684Z"
+  },
+  {
+    "name": "Huy",
+    "score": 267819,
+    "lines": 159,
+    "level": 16,
+    "date": "2026-11-13T00:48:47.683Z"
+  },
+  {
+    "name": "Steven",
+    "score": 168615,
+    "lines": 130,
+    "level": 14,
+    "date": "2026-11-11T16:45:16.591Z"
+  },
+  {
+    "name": "Steven",
+    "score": 133558,
+    "lines": 117,
+    "level": 12,
+    "date": "2026-11-11T02:26:23.123Z"
+  },
+  {
+    "name": "Steven",
+    "score": 129800,
+    "lines": 123,
+    "level": 13,
+    "date": "2026-11-15T04:15:38.419Z"
+  },
+  {
+    "name": "Steven",
+    "score": 123449,
+    "lines": 114,
+    "level": 12,
+    "date": "2026-11-11T07:43:15.909Z"
+  },
+  {
+    "name": "steven",
+    "score": 110138,
+    "lines": 110,
+    "level": 12,
+    "date": "2026-11-13T07:53:28.052Z"
+  }
+]
