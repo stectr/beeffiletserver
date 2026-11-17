@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Worship Notes</title>
+  <title>Worship Sheet Generator</title>
   <style>
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
@@ -15,10 +15,10 @@
     button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
     .app-header { width: min(100%, 816px); margin: 0 auto 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .brand h1 { margin: 0; font-size: 1.35rem; line-height: 1.2; letter-spacing: -.03em; }
-    .brand p { margin: 3px 0 0; color: #666660; font-size: .9rem; }
+    .brand h1 span { color: #666660; font-size: .6em; font-weight: 400; letter-spacing: normal; }
     .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
     .app-header button { font-size: .9rem; font-weight: 600; }
-    .sheet { font: 11pt/1.3 Georgia, "Times New Roman", serif; }
+    .sheet, .print-pages, .print-staging { font: 11pt/1.3 Georgia, "Times New Roman", serif; }
     .sheet-toolbar { width: min(100%, 816px); margin: 0 auto 14px; padding: 14px 18px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px 20px; border: 1px solid #deded9; border-radius: 10px; background: white; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
     .toolbar-copy { display: grid; gap: 3px; }
     .toolbar-copy strong { font-size: .95rem; }
@@ -29,19 +29,20 @@
     .sheet-toolbar button { font-weight: 650; }
     .sheet-toolbar .primary { border-color: #1c1c1a; background: #1c1c1a; color: white; }
     .sheet-toolbar .primary:hover { background: #383835; }
-    .help { width: min(100%, 816px); margin: 18px auto 0; color: #575752; font-size: .88rem; }
-    .help p { margin: 0 0 8px; }
-    .help details { border-top: 1px solid #deded9; padding-top: 9px; }
-    .help summary { width: fit-content; cursor: pointer; color: #30302d; font-weight: 600; }
-    .help details p { margin-top: 8px; }
+    .help { width: min(100%, 816px); margin: 0 auto 14px; padding: 12px 18px; border: 1px solid #deded9; border-radius: 10px; background: white; color: #575752; font-size: .88rem; }
+    .help summary { cursor: pointer; color: #30302d; font-weight: 600; }
+    .help ul { margin: 10px 0 0; padding-left: 1.4em; }
+    .help li + li { margin-top: 5px; }
     code { padding: .1em .3em; border-radius: 3px; background: #ebebe8; font-size: .95em; }
-    .paper-stack { display: flex; flex-direction: column; align-items: center; gap: 1.5em; }
+    .paper-stack { display: flex; flex-direction: column; align-items: center; gap: 1.5em; user-select: none; }
     .paper-page { width: 8.5in; height: 11in; padding: .6in; background: white; outline: 1px solid #deded9; box-shadow: 0 8px 26px #0000000c; zoom: var(--page-scale, 1); }
     .page-slot { position: relative; width: 7.3in; height: 9.7in; }
     .lyrics-wrap { position: relative; width: calc(7.3in + .3in); height: 9.7in; margin: 0 -.15in; padding: 0 .15in; overflow: hidden; }
     .page-snapshot { cursor: text; }
     .lyrics { width: 7.3in; column-count: 2; column-gap: .4in; column-fill: auto; height: 9.7in; }
     .lyric-line { white-space: pre-wrap; break-inside: avoid; min-height: 2.6em; }
+    .lyric-line.key-line, .lyric-line.column-start-cue { min-height: 1.3em; }
+    .lyric-line.column-start-cue-break { break-before: column; }
     .section-cue { font-weight: bold; }
     .lyric-line.section-cue { line-height: 1.3; }
     .word, .pause { display: inline-flex; flex-direction: column; vertical-align: bottom; max-width: 100%; }
@@ -63,7 +64,7 @@
     .tail-slot .lyric-input { top: auto; bottom: 0; height: 1.3em; }
     .lyric-line:not(.blank) .tail-slot:not(:focus-within) { width: 0; pointer-events: none; }
     .hot { background: #0000000a; }
-    .lyric-line.section-cue, .lyric-line.instrumental { display: flow-root; }
+    .lyric-line.section-cue, .lyric-line.intro, .lyric-line.instrumental { display: flow-root; }
     .lyric-line.page-break { min-height: 0; height: 1.3em; break-after: column; border-bottom: 1px dashed #c9c9c3; color: #8a8a84; font: 8pt sans-serif; line-height: 1.3em; user-select: none; }
     .page-break-extra { height: 0; break-after: column; }
     .key-word, .key-line { font-weight: bold; font-style: italic; }
@@ -72,11 +73,23 @@
     .lyric-line.blank .tail-slot { display: block; width: calc(100% + .2em); margin: 0 -.1em; cursor: text; }
     .lyric-line.blank .tail-slot .lyric-input { left: .1em; width: calc(100% - .2em); }
     .line-slot { position: relative; display: block; min-height: 1.3em; margin: 1.3em -.1em 0; border-radius: 5px; }
+    .key-line .line-slot, .column-start-cue .line-slot { margin-top: 0; }
     .line-size { display: block; visibility: hidden; padding: 0 .1em; min-height: 1.3em; line-height: 1.3; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
     textarea.lyric-input { resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; display: block; }
     .line-slot .lyric-input { left: .1em; width: calc(100% - .2em); }
+    .lyric-input, .chord-input { user-select: text; }
+    .line-slot.has-time-signature .line-size { display: none; }
+    .time-display { display: block; padding: 0 .1em; min-height: 1.3em; line-height: 1.3; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
+    .time-signature { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .7em; line-height: .8; }
+    .time-signature > :first-child { border-bottom: 1px solid currentColor; }
+    .line-slot.has-time-signature .lyric-input { opacity: 0; }
+    .line-slot.has-time-signature:focus-within .line-size { display: block; }
+    .line-slot.has-time-signature:focus-within .time-display { display: none; }
+    .line-slot.has-time-signature:focus-within .lyric-input { opacity: 1; }
     .chord-input:focus-visible, .lyric-input:focus-visible { outline: 0; }
     .pause { border-radius: 5px; }
+    .extra-chord .chord-slot { min-width: .8em; }
+    .pause:not(.extra-chord) > .chord-slot.range-sel:not(.has-chord)::after { content: ""; position: absolute; left: -.25em; bottom: 0; width: .5em; height: 1.3em; background: #2b6cb033; pointer-events: none; }
     .pause:focus-within { background: #00000014; padding: 0 .1em; margin: 0 .1em; }
     .pause:focus-within .chord-slot { min-width: .7em; }
     .error { font-weight: bold; }
@@ -93,6 +106,8 @@
       .print-page .lyrics { width: 7.3in; }
       .lyric-input::placeholder { color: transparent; }
       .lyric-line.page-break { visibility: hidden; }
+      .range-sel { background: transparent !important; }
+      .range-sel::after { display: none; }
     }
     @media (max-width: 600px) {
       main { padding: 18px 12px 36px; }
@@ -109,14 +124,24 @@
   <main>
     <header class="app-header">
       <div class="brand">
-        <h1>Worship Notes</h1>
-        <p>Song sheet editor</p>
+        <h1>Worship Sheet Generator <span>v1.0</span></h1>
       </div>
       <div class="actions" aria-label="Sheet actions">
         <button id="newSheet" type="button">New sheet</button>
         <button id="printSheet" type="button">Print / PDF</button>
       </div>
     </header>
+    <details class="help">
+      <summary>Formatting and page tips</summary>
+      <ul>
+        <li><strong>Lyrics:</strong> Click a word or an empty line to type; paste lyrics to add multiple lines. Drag across lyrics or from the paper margin to select and copy them. Press Enter for a new line; Ctrl+A twice (Cmd+A on Mac) selects the whole sheet.</li>
+        <li><strong>Chords:</strong> Click above a word to add a chord. A hyphen splits a word into chord blocks, such as <code>melo-dious</code>. Left and right move through a chord, then between blocks; up and down move between lines. Tab moves chord text after the cursor forward; Backspace at the start moves it back and combines with the previous chord. Drag across chords to copy them; pasted chords keep their lines, skipping section headings and adding blocks when needed.</li>
+        <li><strong>Title and key:</strong> Add the key in parentheses, such as <code>Song title (G)</code>, for a compact bold italic title.</li>
+        <li><strong>Sections:</strong> Lines starting with Verse, Chorus, Bridge, or <code>(</code> are bold and have no chord slots.</li>
+        <li><strong>Intro and instrumental:</strong> Start with <code>Intro:</code> or <code>Instrumental:</code> for a normal-weight line without chord slots. Time signatures like <code>4/4</code> display vertically. For example: <code>Instrumental: | G / / / | A / / / |</code>.</li>
+        <li><strong>Pages and saving:</strong> Shift+Enter starts a new page. Scroll to see more pages, or use Print / PDF. Your sheet saves on this device; New sheet replaces it.</li>
+      </ul>
+    </details>
     <article class="sheet" aria-label="Song sheet">
       <div class="sheet-toolbar">
         <div class="toolbar-copy">
@@ -135,14 +160,6 @@
         </div>
       </div>
     </article>
-    <section class="help" aria-label="Song sheet help">
-      <p>Hover over a word to highlight it, then click above it to enter a chord or click the word to edit it. Click at the end of a line to add words, or anywhere on an empty line to start typing; Enter starts a new line and pasting adds whole lyrics. Tab moves through chords and pauses; Shift+Tab moves back. Delete chord text to remove it. Shift+Enter starts a new page. Type the song title on the first line and add its key in brackets, like <code>As the Deer (G)</code>, and the key shows in bold italics.</p>
-      <details>
-        <summary>Formatting and page tips</summary>
-        <p>Lines starting with Verse, Chorus, Bridge, or ( are bold section cues. For an instrumental line, include bar lines, e.g. <code>Intro: | G / / / | A / / / |</code>.</p>
-        <p>Scroll down to see the next page.</p>
-      </details>
-    </section>
     <div class="print-pages" id="printPages"></div>
   </main>
   <script>
@@ -150,14 +167,15 @@
       const key = "worship-notes-sheet-v1";
       const $ = (id) => document.getElementById(id);
       const lyrics = $("lyrics"), status = $("saveStatus");
-      let sheet = { text: "", chords: {}, pauses: {} };
+      let sheet = { text: "", chords: {}, pauses: {}, extras: {} };
       const keyPattern = /^\([A-G][#b]?m?\)$/;
       const keyLine = /\([A-G][#b]?m?\)/;
       let navigation = [];
       let lyricInputs = [];
       let activePage = 0, previewPending = false, pendingFocus = null;
       const isSectionCue = (line) => /^\s*(?:(?:verse|chorus|bridge)(?=$|[\W\d_])|\()/i.test(line);
-      const isInstrumental = (line) => /\|.*\|/.test(line);
+      const isIntro = (line) => /^\s*intro:/i.test(line);
+      const isInstrumental = (line) => /^\s*instrumental:/i.test(line);
 
       function spaceChords() {
         const style = getComputedStyle(lyrics);
@@ -191,17 +209,26 @@
       const columnOf = (element, geometry) =>
         Math.max(0, Math.round((element.getBoundingClientRect().left - geometry.left) / geometry.scale / geometry.colStep));
 
-      // A page break must push the following line to the first column of the next page.
-      function fixPageBreaks() {
-        const breaks = [...lyrics.querySelectorAll(".page-break")];
-        if (!breaks.length || !lyrics.getBoundingClientRect().width) return;
+      function layoutColumns() {
+        const bounds = lyrics.getBoundingClientRect();
+        if (!bounds.width) return;
+        lyrics.querySelectorAll(".column-start-cue, .column-start-cue-break").forEach((row) =>
+          row.classList.remove("column-start-cue", "column-start-cue-break"));
+        lyrics.querySelectorAll(".page-break-extra").forEach((row) => row.remove());
         const geometry = columnGeometry();
-        for (const row of breaks) {
-          const next = row.nextElementSibling;
-          if (next && columnOf(next, geometry) % 2 === 1) {
-            const extra = document.createElement("div");
-            extra.className = "page-break-extra";
-            row.after(extra);
+        for (const row of [...lyrics.children]) {
+          if (row.classList.contains("page-break")) {
+            const next = row.nextElementSibling;
+            if (next && columnOf(next, geometry) % 2 === 1) {
+              const extra = document.createElement("div");
+              extra.className = "page-break-extra";
+              row.after(extra);
+            }
+          } else if (row.classList.contains("section-cue") && !row.classList.contains("key-line") &&
+                     Math.abs(row.getBoundingClientRect().top - bounds.top) < geometry.scale) {
+            const column = columnOf(row, geometry);
+            row.classList.add("column-start-cue");
+            if (columnOf(row, geometry) < column) row.classList.add("column-start-cue-break");
           }
         }
       }
@@ -295,6 +322,7 @@
         const scale = Math.min(1, Math.max(.25, (document.documentElement.clientWidth - 32) / 816));
         stack.style.setProperty("--page-scale", String(scale));
         spaceChords();
+        layoutColumns();
         const metrics = pageMetrics();
         while (stack.children.length < metrics.count) {
           const page = document.createElement("div"), slot = document.createElement("div");
@@ -323,7 +351,7 @@
 
       // Undo history: snapshots of the whole sheet, with rapid edits (typing) merged into one step.
       let undoStack = [], historyPos = 0, lastChange = 0;
-      const snapshotSheet = () => JSON.stringify({ text: sheet.text, chords: sheet.chords, pauses: sheet.pauses });
+      const snapshotSheet = () => JSON.stringify({ text: sheet.text, chords: sheet.chords, pauses: sheet.pauses, extras: sheet.extras });
 
       function recordHistory() {
         if (!undoStack.length) return;
@@ -335,18 +363,36 @@
         else { undoStack.length = historyPos + 1; undoStack.push(snap); historyPos++; }
       }
 
-      function stepHistory(direction) {
+      function stepHistory(direction, selectionOffset = null) {
         const target = historyPos + direction;
         if (!undoStack.length || target < 0 || target >= undoStack.length) return;
         const before = sheet.text;
+        const active = document.activeElement;
+        const chord = navigation.find((entry) => entry.input === active);
+        const lyric = lyricInputs.find((entry) => entry.input === active);
+        const selection = chord ? [active.selectionStart, active.selectionEnd] : null;
+        const gapIndex = chord?.kind === "gap" ? chord.group.entries.indexOf(chord) : 0;
+        const lyricOffset = lyric ? (lyric.kind === "word" ? lyric.start + (active.selectionStart ?? 0) :
+          lyric.kind === "line" ? lyric.lineStart + (active.selectionStart ?? 0) : lyric.lineEnd) : null;
         historyPos = target;
         lastChange = 0;
         sheet = { ...sheet, ...JSON.parse(undoStack[historyPos]) };
         let common = 0;
         while (common < before.length && common < sheet.text.length && before[common] === sheet.text[common]) common++;
-        pendingFocus = common;
+        pendingFocus = before === sheet.text ? (chord ? chordPosition(chord) : lyricOffset ?? selectionOffset) : common;
         try { localStorage.setItem(key, JSON.stringify(sheet)); } catch (error) { console.error(error); }
         render();
+        if (before === sheet.text && chord) {
+          const next = chordBlocks().find((entry) => sameChordBlock(entry, chordBlock(chord)));
+          if (next) {
+            const input = next.kind === "gap" ?
+              next.group.entries[Math.min(gapIndex, next.group.entries.length - 1)].input : next.input;
+            input.focus({ preventScroll: true });
+            if (selection[0] !== null && selection[1] !== null) {
+              input.setSelectionRange(Math.min(selection[0], input.value.length), Math.min(selection[1], input.value.length));
+            }
+          }
+        }
       }
 
       document.addEventListener("keydown", (event) => {
@@ -354,8 +400,9 @@
         const k = event.key.toLowerCase();
         if (k !== "z" && k !== "y") return;
         event.preventDefault();
-        rangeSel = null;
-        stepHistory(k === "y" || event.shiftKey ? 1 : -1);
+        const selectionOffset = rangeSel ? rangeSel[0] : chordSel ? chordPosition(selectedChords()[0]) : null;
+        clearRange();
+        stepHistory(k === "y" || event.shiftKey ? 1 : -1, selectionOffset);
       }, true);
 
       function save() {
@@ -378,7 +425,7 @@
         const size = document.createElement("span");
         size.className = "chord-size";
         size.setAttribute("aria-hidden", "true");
-        size.textContent = value || (entry.kind === "word" ? "\u00a0" : "");
+        size.textContent = value || (entry.kind !== "gap" ? "\u00a0" : "");
         entry.size = size;
         const input = document.createElement("input");
         input.type = "text";
@@ -393,12 +440,36 @@
         slot.classList.toggle("has-chord", !!input.value);
         input.addEventListener("input", () => {
           slot.classList.toggle("has-chord", !!input.value);
-          size.textContent = input.value || (entry.kind === "word" ? "\u00a0" : "");
+          size.textContent = input.value || (entry.kind !== "gap" ? "\u00a0" : "");
           onInput(input.value);
           save();
         });
         input.addEventListener("keydown", (event) => {
-          if (event.key !== "Tab" || event.ctrlKey || event.altKey || event.metaKey) return;
+          if (event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+          if (!event.shiftKey && event.key === "Backspace" && input.value &&
+              input.selectionStart === 0 && input.selectionEnd === 0) {
+            event.preventDefault();
+            moveChordBackward(entry);
+            return;
+          }
+          if (!event.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(event.key)) {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              const start = input.selectionStart, end = input.selectionEnd;
+              if (start === null || end === null || start !== end ||
+                  (event.key === "ArrowLeft" ? start > 0 : end < input.value.length)) return;
+            }
+            event.preventDefault();
+            moveChordByArrow(entry, event.key);
+            return;
+          }
+          if (event.key !== "Tab") return;
+          const caret = input.selectionStart;
+          if (!event.shiftKey && caret !== null && input.selectionEnd === caret &&
+              input.value.slice(caret).trimStart()) {
+            event.preventDefault();
+            moveChordForward(entry, caret);
+            return;
+          }
           let index = navigation.indexOf(entry);
           if (!event.shiftKey && entry.kind === "gap" && input.value &&
               (!navigation[index + 1] || navigation[index + 1].group !== entry.group)) {
@@ -464,10 +535,40 @@
         row.append(groupElement);
       }
 
+      function renderExtraChords(row, position, line) {
+        (sheet.extras[position] || []).forEach((value, index) => {
+          const entry = { kind: "extra", line, position, index };
+          const element = document.createElement("span");
+          element.className = "pause extra-chord";
+          entry.element = element;
+          const slot = chordSlot(value, "Chord after lyrics", (next) => {
+            sheet.extras[position][index] = next;
+          }, entry);
+          const bottom = document.createElement("span");
+          bottom.className = "pause-bottom";
+          element.append(slot, bottom);
+          navigation.push(entry);
+          row.append(element);
+        });
+      }
+
+      function hyphenParts(text) {
+        const parts = [];
+        let start = 0;
+        for (const match of text.matchAll(/[^-]-+(?=[^-])/g)) {
+          const end = match.index + match[0].length;
+          parts.push({ text: text.slice(start, end), offset: start });
+          start = end;
+        }
+        parts.push({ text: text.slice(start), offset: start });
+        return parts;
+      }
+
       // Replaces sheet.text[start, end) and moves chords and pauses with the text around it.
       // Chords inside the replaced range are dropped; pausesStay keeps a pause that sits exactly at an insertion point.
       function edit(start, end, replacement, focusOffset, pausesStay = false) {
         const delta = replacement.length - (end - start);
+        const oldText = sheet.text, newText = oldText.slice(0, start) + replacement + oldText.slice(end);
         const remap = (map, isPause) => {
           const result = {};
           for (const [position, value] of Object.entries(map)) {
@@ -484,21 +585,72 @@
           }
           return result;
         };
-        sheet.chords = remap(sheet.chords, false);
+        const chords = remap(sheet.chords, false);
+        for (const entry of lyricInputs) {
+          const position = entry.start;
+          if (entry.kind !== "word" || oldText[position - 1] !== "-" ||
+              position - 1 < start || position - 1 >= end || !sheet.chords[position]) continue;
+          const moved = position >= end ? position + delta : position === start ? position : -1;
+          if (moved < 0 || !chords[moved] || !newText[moved] || /\s/.test(newText[moved]) ||
+              newText[moved - 1] === "-") continue;
+          let wordStart = moved, wordEnd = moved;
+          while (wordStart > 0 && !/\s/.test(newText[wordStart - 1])) wordStart--;
+          while (wordEnd < newText.length && !/\s/.test(newText[wordEnd])) wordEnd++;
+          const parts = hyphenParts(newText.slice(wordStart, wordEnd));
+          const part = parts.find((item) => wordStart + item.offset <= moved &&
+            moved < wordStart + item.offset + item.text.length);
+          const target = wordStart + part.offset;
+          if (target === moved) continue;
+          const combined = [chords[target], chords[moved]].filter(Boolean).join(" ");
+          if (combined.length > 40) {
+            status.className = "save-status error";
+            status.textContent = "Cannot join these chords: the combined chord is too long.";
+            pendingFocus = Math.min(start, oldText.length);
+            render();
+            return;
+          }
+          chords[target] = combined;
+          delete chords[moved];
+        }
+        sheet.chords = chords;
         sheet.pauses = remap(sheet.pauses, true);
-        sheet.text = sheet.text.slice(0, start) + replacement + sheet.text.slice(end);
+        const extras = {};
+        for (const [position, values] of Object.entries(sheet.extras)) {
+          const lineEnd = Number(position), lineStart = oldText.lastIndexOf("\n", lineEnd - 1) + 1;
+          if (start <= lineStart && end > lineEnd) continue;
+          const anchor = Math.max(lineStart, lineEnd - 1);
+          const moved = anchor < start ? anchor : anchor >= end ? anchor + delta : Math.max(0, start + replacement.length - 1);
+          const nextEnd = newText.indexOf("\n", moved);
+          const target = nextEnd < 0 ? newText.length : nextEnd;
+          extras[target] = extras[target] ? [...extras[target], ...values] : values;
+        }
+        sheet.extras = extras;
+        sheet.text = newText;
         pendingFocus = focusOffset;
         save();
         render();
       }
 
       function focusOffset(offset) {
-        const target = lyricInputs.find((entry) => entry.kind === "word" && entry.start <= offset && offset <= entry.end) ||
-          lyricInputs.find((entry) => entry.kind !== "word" && entry.lineStart <= offset && offset <= entry.lineEnd) ||
-          lyricInputs[lyricInputs.length - 1];
+        let target = lyricInputs.find((entry) => entry.kind === "word" && entry.start === offset) ||
+          lyricInputs.find((entry) => entry.kind === "word" && entry.start <= offset && offset <= entry.end);
+        const line = lyricInputs.find((entry) => entry.kind !== "word" && entry.lineStart <= offset && offset <= entry.lineEnd);
+        if (!target && line?.kind === "line") target = line;
+        if (!target && line?.kind === "tail") {
+          if (offset === line.lineEnd) target = line;
+          else target = [...lyricInputs].reverse().find((entry) =>
+            entry.kind === "word" && entry.start >= line.lineStart && entry.end <= offset) ||
+            lyricInputs.find((entry) => entry.kind === "word" && entry.start >= offset && entry.end <= line.lineEnd) || line;
+        }
+        if (!target) {
+          target = [...lyricInputs].reverse().find((entry) =>
+            entry.kind === "word" ? entry.end <= offset : entry.kind === "line" && entry.lineEnd <= offset) ||
+            lyricInputs.find((entry) => entry.kind === "word" ? entry.start >= offset : entry.kind === "line" && entry.lineStart >= offset) ||
+            lyricInputs[0];
+        }
         if (!target) return;
         const caret = target.kind === "word" ? offset - target.start : target.kind === "line" ? offset - target.lineStart : 0;
-        placeCaret(target.input, Math.max(0, caret));
+        placeCaret(target.input, Math.min(target.input.value.length, Math.max(0, caret)));
       }
 
       function moveLyric(entry, direction, event) {
@@ -612,9 +764,11 @@
           const full = sheet.text;
           delete sheet.chords[start];
           delete sheet.pauses[end];
-          if (full[end] === " ") edit(start, end + 1, "", start);
-          else if (full[start - 1] === " ") edit(start - 1, end, "", start - 1);
-          else edit(start, end, "", start);
+          if ((start > 0 && /\S/.test(full[start - 1])) || (end < full.length && /\S/.test(full[end]))) {
+            edit(start, end, "", Math.max(0, start - 1));
+          } else if (full[end] === " ") edit(start, end + 1, "", Math.max(0, start - 1));
+          else if (full[start - 1] === " ") edit(start - 1, end, "", Math.max(0, start - 2));
+          else edit(start, end, "", Math.max(0, start - 1));
         };
         entry.input_ = () => {
           const value = entry.input.value, caret = entry.input.selectionStart ?? value.length;
@@ -663,6 +817,7 @@
           event.preventDefault();
           const full = sheet.text;
           if (breakBefore(start)) { edit(start - 2, start, "", start - 2); return; }
+          if (full[start - 1] === "-") { edit(start - 1, start, "", start - 1); return; }
           if (full[start - 1] === "\n") {
             delete sheet.pauses[start];
             const previousEmpty = start === 1 || full[start - 2] === "\n";
@@ -711,9 +866,33 @@
         return slot;
       }
 
-      function fixedLineField(lineStart, lineEnd, line, lineIndex) {
+      function fixedLineField(lineStart, lineEnd, line, lineIndex, formatTimeSignatures) {
         const entry = { kind: "line", line: lineIndex, lineStart, lineEnd };
         const slot = lyricField(entry, line, "Lyric line");
+        if (formatTimeSignatures) {
+          const matches = [...line.matchAll(/(^|[^a-z0-9/])(\d{1,2})\/(1|2|4|8|16|32|64)(?![a-z0-9/])/gi)];
+          if (matches.length) {
+            const display = document.createElement("span");
+            display.className = "time-display";
+            display.setAttribute("aria-hidden", "true");
+            let position = 0;
+            for (const match of matches) {
+              const start = match.index + match[1].length;
+              display.append(document.createTextNode(line.slice(position, start)));
+              const fraction = document.createElement("span");
+              fraction.className = "time-signature";
+              const top = document.createElement("span"), bottom = document.createElement("span");
+              top.textContent = match[2];
+              bottom.textContent = match[3];
+              fraction.append(top, bottom);
+              display.append(fraction);
+              position = start + match[2].length + 1 + match[3].length;
+            }
+            display.append(document.createTextNode(line.slice(position)));
+            slot.classList.add("has-time-signature");
+            slot.prepend(display);
+          }
+        }
         entry.input_ = () => {
           const value = entry.input.value, caret = entry.input.selectionStart ?? value.length;
           entry.size.textContent = value;
@@ -756,13 +935,15 @@
             return;
           }
           const lineStart = offset, lineEnd = offset + line.length;
-          const titleLine = keyLine.test(line);
+          const intro = isIntro(line), instrumental = isInstrumental(line);
+          const titleLine = !intro && !instrumental && keyLine.test(line);
           if (titleLine) row.className += " key-line";
-          const cue = isSectionCue(line) || titleLine, instrumental = isInstrumental(line);
-          if (cue || instrumental) {
+          const cue = isSectionCue(line) || titleLine;
+          if (cue || intro || instrumental) {
             if (cue) row.className += " section-cue";
+            if (intro) row.className += " intro";
             if (instrumental) row.className += " instrumental";
-            row.append(fixedLineField(lineStart, lineEnd, line, lineIndex));
+            row.append(fixedLineField(lineStart, lineEnd, line, lineIndex, intro || instrumental));
           } else {
             if (line.trim()) renderGap(row, offset, lineIndex);
             for (const match of line.matchAll(/\s+|\S+/g)) {
@@ -772,27 +953,29 @@
                 row.append(space);
                 continue;
               }
-              const position = offset + match.index;
-              const word = document.createElement("span");
-              word.className = keyPattern.test(match[0]) ? "word key-word" : "word";
-              word.setAttribute("data-position", String(position));
-              const entry = { kind: "word", line: lineIndex };
-              entry.element = word;
-              const slot = chordSlot(sheet.chords[position] || "", `Chord above ${match[0]}`, (value) => {
-                if (value) sheet.chords[position] = value;
-                else delete sheet.chords[position];
-              }, entry);
-              navigation.push(entry);
-              word.append(slot, wordField(match[0], position).slot);
-              row.append(word);
-              renderGap(row, position + match[0].length, lineIndex);
+              for (const part of hyphenParts(match[0])) {
+                const position = offset + match.index + part.offset;
+                const word = document.createElement("span");
+                word.className = keyPattern.test(part.text) ? "word key-word" : "word";
+                word.setAttribute("data-position", String(position));
+                const entry = { kind: "word", line: lineIndex };
+                entry.element = word;
+                const slot = chordSlot(sheet.chords[position] || "", `Chord above ${part.text}`, (value) => {
+                  if (value) sheet.chords[position] = value;
+                  else delete sheet.chords[position];
+                }, entry);
+                navigation.push(entry);
+                word.append(slot, wordField(part.text, position).slot);
+                row.append(word);
+              }
+              renderGap(row, offset + match.index + match[0].length, lineIndex);
             }
+            if (line.trim()) renderExtraChords(row, lineEnd, lineIndex);
             row.append(tailField(lineStart, lineEnd, line, lineIndex, !sheet.text));
           }
           lyrics.append(row);
           offset += line.length + 1;
         });
-        fixPageBreaks();
         if (pendingFocus !== null) {
           const target = pendingFocus;
           pendingFocus = null;
@@ -825,6 +1008,11 @@
       }
 
       lyrics.addEventListener("click", (event) => {
+        if (chordPointerHandled) {
+          chordPointerHandled = false;
+          event.preventDefault();
+          return;
+        }
         if (event.target.classList?.contains("tail-slot") && event.target.parentElement?.classList.contains("blank")) {
           const input = event.target.querySelector(".lyric-input");
           if (input) placeCaret(input, input.value.length);
@@ -841,29 +1029,214 @@
       lyrics.addEventListener("pointermove", (event) => setHot(gapTarget(event)?.element));
       lyrics.addEventListener("pointerleave", () => setHot(null));
 
-      // Dragging across several words selects them as a block that can be deleted, replaced or copied.
-      let dragAnchor = null, rangeSel = null;
+      let dragAnchor = null, rangeSel = null, chordSel = null, wholeSheet = false, selectAllInput = null, chordPointerHandled = false;
+      const chordClipboardType = "application/x-worship-chords";
+      const chordBlocks = () => navigation.filter((entry) => entry.kind !== "gap" || entry.group.entries[0] === entry);
+      const chordBlock = (entry) => entry.kind === "gap" ? entry.group.entries[0] : entry;
+      const chordValues = (entry) => entry.kind === "gap" ?
+        entry.group.entries.map((item) => item.input.value).filter(Boolean) : (entry.input.value ? [entry.input.value] : []);
+      const chordPosition = (entry) => entry.kind === "word" ? Number(entry.element.dataset.position) :
+        entry.kind === "gap" ? entry.group.position : entry.position;
+      const sameChordBlock = (a, b) => a.kind === b.kind && chordPosition(a) === chordPosition(b) &&
+        (a.kind !== "extra" || a.index === b.index);
+      const isLyricBlock = (blocks, index) => {
+        const entry = blocks[index], before = blocks[index - 1], after = blocks[index + 1];
+        return entry.kind !== "gap" ||
+          (before?.kind === "word" && after?.kind === "word" && before.line === entry.line && after.line === entry.line);
+      };
+      const navigableChordBlocks = (source) => {
+        const all = chordBlocks();
+        return all.filter((block, index) => block === source || isLyricBlock(all, index) || chordValues(block).length);
+      };
+      const selectedChords = () => {
+        const blocks = chordBlocks();
+        return blocks.slice(chordSel[0], chordSel[1] + 1).filter((entry, index) =>
+          index === 0 || index === chordSel[1] - chordSel[0] ||
+          isLyricBlock(blocks, chordSel[0] + index) || chordValues(entry).length);
+      };
       const entryBounds = (entry) => entry.kind === "word" ? [entry.start, entry.end] :
         entry.kind === "line" ? [entry.lineStart, entry.lineEnd] : [entry.lineEnd, entry.lineEnd];
 
+      function moveChordByArrow(entry, key) {
+        const source = chordBlock(entry), blocks = navigableChordBlocks(source);
+        const index = blocks.indexOf(source);
+        if (index < 0) return;
+        let target;
+        if (key === "ArrowLeft" || key === "ArrowRight") {
+          target = blocks[index + (key === "ArrowLeft" ? -1 : 1)];
+        } else {
+          const direction = key === "ArrowUp" ? -1 : 1;
+          const geometry = columnGeometry(), base = lyrics.getBoundingClientRect();
+          const step = geometry.colStep * geometry.scale;
+          const rect = source.element.getBoundingClientRect();
+          const column = Math.max(0, Math.floor(((rect.left + rect.right) / 2 - base.left) / step));
+          const x = (rect.left + rect.right) / 2 - base.left - column * step;
+          let bestColumn = Infinity, bestRow = Infinity, bestX = Infinity;
+          for (const candidate of blocks) {
+            if (candidate === source) continue;
+            const box = candidate.element.getBoundingClientRect();
+            const candidateColumn = Math.max(0, Math.floor(((box.left + box.right) / 2 - base.left) / step));
+            const columnDistance = (candidateColumn - column) * direction;
+            if (columnDistance < 0) continue;
+            const delta = (box.bottom - rect.bottom) * direction;
+            if (columnDistance === 0 && delta <= geometry.scale * .5) continue;
+            const rowDistance = columnDistance === 0 ? delta : box.bottom * direction;
+            const dx = Math.abs((box.left + box.right) / 2 - base.left - candidateColumn * step - x);
+            if (columnDistance < bestColumn ||
+                (columnDistance === bestColumn && (rowDistance < bestRow - geometry.scale * .5 ||
+                  (Math.abs(rowDistance - bestRow) <= geometry.scale * .5 && dx < bestX)))) {
+              target = candidate;
+              bestColumn = columnDistance;
+              bestRow = rowDistance;
+              bestX = dx;
+            }
+          }
+        }
+        if (!target) return;
+        if (key === "ArrowLeft" || key === "ArrowRight") {
+          placeCaret(target.input, key === "ArrowLeft" ? target.input.value.length : 0);
+        } else {
+          target.input.focus({ preventScroll: true });
+          target.input.select();
+        }
+        schedulePreview();
+      }
+
       function showRange() {
         lyrics.querySelectorAll(".range-sel").forEach((element) => element.classList.remove("range-sel"));
+        if (chordSel) {
+          for (const entry of selectedChords()) {
+            const filled = entry.kind === "gap" ? entry.group.entries.filter((item) => item.input.value) : [];
+            const slots = entry.kind !== "gap" ? [entry.input.closest(".chord-slot")] :
+              (filled.length ? filled : [entry]).map((item) => item.input.closest(".chord-slot"));
+            slots.forEach((slot) => slot?.classList.add("range-sel"));
+          }
+          return;
+        }
         if (!rangeSel) return;
+        if (wholeSheet) {
+          lyrics.querySelectorAll(".lyric-line").forEach((row) => row.classList.add("range-sel"));
+          return;
+        }
         for (const entry of lyricInputs) {
-          if (entry.kind === "word" && entry.start >= rangeSel[0] && entry.end <= rangeSel[1]) entry.input.closest(".word")?.classList.add("range-sel");
+          if (entry.kind === "word" && entry.start >= rangeSel[0] && entry.end <= rangeSel[1]) entry.input.closest(".lyric-slot")?.classList.add("range-sel");
           else if (entry.kind === "line" && entry.lineStart >= rangeSel[0] && entry.lineEnd <= rangeSel[1]) entry.input.closest(".line-slot")?.classList.add("range-sel");
         }
       }
 
       function clearRange() {
-        if (!rangeSel) return;
+        if (!rangeSel && !chordSel) return;
         rangeSel = null;
+        chordSel = null;
+        wholeSheet = false;
         showRange();
+        schedulePreview();
+      }
+
+      function setChordBlocks(blocks, values) {
+        blocks.forEach((entry, index) => {
+          const position = chordPosition(entry), chords = values[index];
+          if (entry.kind === "word") {
+            if (chords.length) sheet.chords[position] = chords[0];
+            else delete sheet.chords[position];
+          } else if (entry.kind === "extra") {
+            const cells = sheet.extras[position] || (sheet.extras[position] = []);
+            while (cells.length <= entry.index) cells.push("");
+            cells[entry.index] = chords[0] || "";
+          } else if (chords.length) sheet.pauses[position] = chords;
+          else delete sheet.pauses[position];
+        });
+        chordSel = null;
+        save();
+        render();
+      }
+
+      function deleteSelectedChords() {
+        const selected = selectedChords();
+        const blocks = navigableChordBlocks(selected[0]);
+        const previous = blocks[blocks.indexOf(selected[0]) - 1] || selected[0];
+        setChordBlocks(selected, selected.map(() => []));
+        const next = chordBlocks().find((entry) => sameChordBlock(entry, previous));
+        if (next) {
+          const input = next.kind === "gap" ?
+            [...next.group.entries].reverse().find((entry) => entry.input.value)?.input || next.input : next.input;
+          placeCaret(input, input.value.length);
+        }
+      }
+
+      function moveChordBackward(entry) {
+        const source = chordBlock(entry), blocks = navigableChordBlocks(source);
+        const target = blocks[blocks.indexOf(source) - 1];
+        if (!target) {
+          status.className = "save-status error";
+          status.textContent = "No previous chord block.";
+          return;
+        }
+        const values = chordValues(target), previous = values.pop() || "";
+        const separator = previous && !/\s$/.test(previous) && !/^\s/.test(entry.input.value) ? " " : "";
+        const combined = previous + separator + entry.input.value;
+        if (combined.length > 40) {
+          status.className = "save-status error";
+          status.textContent = "The combined chord is too long for one block.";
+          return;
+        }
+        values.push(combined);
+        const remaining = source.kind === "gap" ?
+          source.group.entries.filter((item) => item !== entry && item.input.value).map((item) => item.input.value) : [];
+        setChordBlocks([target, source], [values, remaining]);
+        const next = chordBlocks().find((item) => sameChordBlock(item, target));
+        if (next) {
+          const input = next.kind === "gap" ? next.group.entries[values.length - 1].input : next.input;
+          placeCaret(input, previous.length + separator.length);
+        }
+      }
+
+      function moveChordForward(entry, caret) {
+        const blocks = chordBlocks(), source = chordBlock(entry), start = blocks.indexOf(source);
+        if (start < 0) {
+          status.className = "save-status error";
+          status.textContent = "Could not find the chord block.";
+          return;
+        }
+        const following = blocks.slice(start + 1).filter((block, index) =>
+          block.line === entry.line && (isLyricBlock(blocks, start + 1 + index) || chordValues(block).length));
+        let empty = following.findIndex((block) => chordValues(block).length === 0);
+        if (empty < 0) {
+          const lines = sheet.text.split("\n");
+          let position = 0;
+          for (let index = 0; index <= entry.line; index++) position += lines[index].length + (index ? 1 : 0);
+          following.push({ kind: "extra", line: entry.line, position, index: (sheet.extras[position] || []).length, input: { value: "" } });
+          empty = following.length - 1;
+        }
+        const targets = following.slice(0, empty + 1);
+        const prefix = entry.input.value.slice(0, caret).trimEnd();
+        const suffix = entry.input.value.slice(caret).trimStart();
+        const remaining = source.kind === "gap" ?
+          source.group.entries.map((item) => item === entry ? prefix : item.input.value).filter(Boolean) :
+          (prefix ? [prefix] : []);
+        const values = targets.map((target, index) => {
+          const chords = index === 0 ? [suffix] : chordValues(targets[index - 1]);
+          return target.kind !== "gap" && chords.length ? [chords.join(" ")] : chords;
+        });
+        if (values.some((chords, index) => targets[index].kind !== "gap" && chords[0]?.length > 40)) {
+          status.className = "save-status error";
+          status.textContent = "A chord block is too long to move onto a word.";
+          return;
+        }
+        const first = targets[0];
+        setChordBlocks([source, ...targets], [remaining, ...values]);
+        const next = chordBlocks().find((item) => sameChordBlock(item, first));
+        if (next) placeCaret(next.input, 0);
       }
 
       function replaceRange(replacement) {
         let [from, to] = rangeSel;
         const text = sheet.text;
+        if (from === 0 && to === text.length) {
+          sheet.chords = {};
+          sheet.pauses = {};
+          sheet.extras = {};
+        }
         if (!replacement && (from === 0 || text[from - 1] === "\n") && (to === text.length || text[to] === "\n")) {
           if (to < text.length) to++;
           else if (from > 0) from--;
@@ -871,38 +1244,279 @@
         delete sheet.chords[from];
         delete sheet.pauses[to];
         rangeSel = null;
-        edit(from, to, replacement, from + replacement.length);
+        wholeSheet = false;
+        edit(from, to, replacement, replacement ? from + replacement.length : Math.max(0, from - 1));
+      }
+
+      function paperWrapAt(x, y) {
+        let page = null, pageDistance = Infinity;
+        for (const candidate of $("paperStack").children) {
+          const box = candidate.getBoundingClientRect();
+          const dx = Math.max(box.left - x, x - box.right, 0);
+          const dy = Math.max(box.top - y, y - box.bottom, 0);
+          const distance = dx * dx + dy * dy;
+          if (distance < pageDistance) { page = candidate; pageDistance = distance; }
+        }
+        const wrap = page?.querySelector(".lyrics-wrap");
+        return wrap ? { wrap, scale: page.getBoundingClientRect().width / 816 } : null;
+      }
+
+      function lyricEntryAt(x, y) {
+        const paper = paperWrapAt(x, y);
+        if (!paper) return null;
+        const { wrap } = paper;
+        const clip = wrap.getBoundingClientRect();
+        let best = null, bestDistance = Infinity;
+        for (const input of wrap.querySelectorAll(".lyric-input")) {
+          const box = input.getBoundingClientRect();
+          if (!box.width || !box.height || box.right <= clip.left || box.left >= clip.right ||
+              box.bottom <= clip.top || box.top >= clip.bottom) continue;
+          const entry = lyricInputs[Number(input.dataset.lyric)] || lyricInputs.find((item) => item.input === input);
+          if (!entry) continue;
+          const dx = Math.max(box.left - x, x - box.right, 0);
+          const dy = Math.max(box.top - y, y - box.bottom, 0);
+          const distance = dx * dx + dy * dy;
+          if (distance < bestDistance) { best = entry; bestDistance = distance; }
+        }
+        return best;
+      }
+
+      function chordEntryAt(x, y, requireChordBand = false) {
+        const paper = paperWrapAt(x, y);
+        if (!paper) return null;
+        const { wrap, scale } = paper, clip = wrap.getBoundingClientRect(), blocks = chordBlocks();
+        const indices = new Map(blocks.map((block, index) => [block, index]));
+        let best = null, bestDistance = Infinity, height = null, reach = 0;
+        for (const input of wrap.querySelectorAll(".chord-input")) {
+          const entry = navigation[Number(input.dataset.nav)] || navigation.find((item) => item.input === input);
+          if (!entry) continue;
+          const block = chordBlock(entry), index = indices.get(block);
+          if (index === undefined || (!isLyricBlock(blocks, index) && !chordValues(block).length)) continue;
+          const holder = input.closest(".word, .pause");
+          const bottom = holder?.querySelector(".lyric-input, .pause-bottom")?.getBoundingClientRect();
+          if (!bottom) continue;
+          const box = input.getBoundingClientRect();
+          if (height === null) {
+            const style = getComputedStyle(input);
+            height = parseFloat(style.lineHeight) * scale;
+            reach = parseFloat(style.fontSize) * scale * .75;
+          }
+          const top = bottom.top - height;
+          if (box.right < clip.left || box.left > clip.right || bottom.top < clip.top || top > clip.bottom) continue;
+          const dx = Math.max(box.left - x, x - box.right, 0);
+          const dy = Math.max(top - y, y - bottom.top, 0);
+          if (requireChordBand && (dy > 0 || dx > reach)) continue;
+          const distance = dx * dx + dy * dy;
+          if (distance < bestDistance) { best = entry; bestDistance = distance; }
+        }
+        return best;
       }
 
       document.addEventListener("pointerdown", (event) => {
+        selectAllInput = null;
+        chordPointerHandled = false;
         clearRange();
-        const input = event.target.closest?.(".lyric-input");
-        dragAnchor = input ? lyricInputs.find((entry) => entry.input === input) || null : null;
+        const input = event.target.closest?.(".lyric-input, .chord-input");
+        if (!input) {
+          const onPaper = event.target.closest?.(".paper-page");
+          const chord = onPaper && chordEntryAt(event.clientX, event.clientY, true);
+          const lyric = onPaper && !chord && lyricEntryAt(event.clientX, event.clientY);
+          dragAnchor = chord ? { kind: "chord", entry: chord } : lyric ? { kind: "lyric", entry: lyric } : null;
+          if (chord) {
+            chordPointerHandled = true;
+            event.preventDefault();
+            placeCaret(chord.input, chord.input.value.length);
+          }
+          return;
+        }
+        const isChord = input.classList.contains("chord-input");
+        const entries = isChord ? navigation : lyricInputs;
+        const entry = entries.find((item) => item.input === input) ||
+          entries[Number(isChord ? input.dataset.nav : input.dataset.lyric)];
+        dragAnchor = entry ? { kind: isChord ? "chord" : "lyric", entry } : null;
       }, true);
-      document.addEventListener("pointerup", () => { dragAnchor = null; });
+      document.addEventListener("pointerup", () => {
+        dragAnchor = null;
+        if (rangeSel || chordSel) schedulePreview();
+      });
+      document.addEventListener("input", () => { selectAllInput = null; });
       document.addEventListener("pointermove", (event) => {
         if (!dragAnchor || !(event.buttons & 1)) return;
         const under = document.elementFromPoint(event.clientX, event.clientY);
-        let holder = under?.closest?.(".word, .tail-slot, .line-slot");
+        let holder = under?.closest?.(dragAnchor.kind === "chord" ? ".word, .pause" : ".word, .tail-slot, .line-slot");
+        if (dragAnchor.kind === "chord") {
+          const input = holder?.querySelector(".chord-input");
+          const target = (input && (navigation.find((entry) => entry.input === input) || navigation[Number(input.dataset.nav)])) ||
+            chordEntryAt(event.clientX, event.clientY);
+          if (!target) return;
+          const blocks = chordBlocks();
+          const a = blocks.indexOf(chordBlock(dragAnchor.entry)), b = blocks.indexOf(chordBlock(target));
+          if (a < 0 || b < 0) return;
+          if (a === b) { clearRange(); return; }
+          rangeSel = null;
+          chordSel = [Math.min(a, b), Math.max(a, b)];
+          document.activeElement?.blur?.();
+          globalThis.getSelection?.()?.removeAllRanges();
+          showRange();
+          return;
+        }
         if (!holder && under?.classList?.contains("lyric-line")) holder = under.querySelector(".tail-slot, .line-slot");
-        const target = holder && lyricInputs.find((entry) => entry.input === holder.querySelector(".lyric-input"));
+        const input = holder?.querySelector(".lyric-input");
+        const target = (input && (lyricInputs.find((entry) => entry.input === input) || lyricInputs[Number(input.dataset.lyric)])) ||
+          lyricEntryAt(event.clientX, event.clientY);
         if (!target) return;
-        if (target === dragAnchor) { clearRange(); return; }
-        const a = entryBounds(dragAnchor), b = entryBounds(target);
+        if (target === dragAnchor.entry) { clearRange(); return; }
+        const a = entryBounds(dragAnchor.entry), b = entryBounds(target);
         rangeSel = [Math.min(a[0], b[0]), Math.max(a[1], b[1])];
         document.activeElement?.blur?.();
         globalThis.getSelection?.()?.removeAllRanges();
         showRange();
       });
       document.addEventListener("keydown", (event) => {
-        if (!rangeSel || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
         const mod = event.ctrlKey || event.metaKey;
+        const input = document.activeElement;
+        if (mod && !event.altKey && event.key.toLowerCase() === "a") {
+          if (input?.matches?.(".lyric-input, .chord-input") && lyrics.contains(input)) {
+            if (selectAllInput !== input) {
+              selectAllInput = input;
+              return;
+            }
+          } else if (!rangeSel && !chordSel) {
+            selectAllInput = null;
+            return;
+          }
+          event.preventDefault();
+          selectAllInput = null;
+          chordSel = null;
+          rangeSel = [0, sheet.text.length];
+          wholeSheet = true;
+          input?.blur?.();
+          globalThis.getSelection?.()?.removeAllRanges();
+          showRange();
+          schedulePreview();
+          return;
+        }
+        if (!["Control", "Meta", "Shift", "Alt"].includes(event.key)) selectAllInput = null;
+        if (chordSel && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) {
+          if (event.key === "Escape") clearRange();
+          else if (event.key === "Backspace" || event.key === "Delete") {
+            event.preventDefault();
+            deleteSelectedChords();
+          }
+          return;
+        }
+        if (!rangeSel || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
         if (event.key === "Escape") clearRange();
-        else if (mod && (event.key === "c" || event.key === "x")) {
-          navigator.clipboard?.writeText(sheet.text.slice(rangeSel[0], rangeSel[1]));
-          if (event.key === "x") { event.preventDefault(); replaceRange(""); }
-        } else if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); replaceRange(""); }
+        else if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); replaceRange(""); }
         else if (event.key.length === 1 && !mod && !event.altKey) { event.preventDefault(); replaceRange(event.key); }
+      });
+      for (const type of ["copy", "cut"]) {
+        document.addEventListener(type, (event) => {
+          if ((!rangeSel && !chordSel) || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || "") || !event.clipboardData) return;
+          if (chordSel) {
+            const blocks = selectedChords();
+            const rows = [];
+            let line = -1;
+            for (const entry of blocks) {
+              if (entry.line !== line) {
+                rows.push([]);
+                line = entry.line;
+              }
+              rows[rows.length - 1].push({ kind: entry.kind === "extra" ? "word" : entry.kind, chords: chordValues(entry) });
+            }
+            try {
+              event.clipboardData.setData(chordClipboardType, JSON.stringify(rows));
+              event.clipboardData.setData("text/plain", rows.flatMap((row) => row.flatMap((block) => block.chords)).join(" "));
+            } catch (error) {
+              console.error("Could not copy chords:", error);
+              status.className = "save-status error";
+              status.textContent = "Could not copy chords.";
+              event.preventDefault();
+              return;
+            }
+            event.preventDefault();
+            if (type === "cut") deleteSelectedChords();
+            return;
+          }
+          event.clipboardData.setData("text/plain", sheet.text.slice(rangeSel[0], rangeSel[1]));
+          event.preventDefault();
+          if (type === "cut") replaceRange("");
+        });
+      }
+      document.addEventListener("paste", (event) => {
+        const input = event.target.closest?.(".chord-input");
+        const selected = chordSel && selectedChords()[0];
+        const data = event.clipboardData?.getData(chordClipboardType);
+        if ((!input && !selected) || !data) return;
+        event.preventDefault();
+        let copied;
+        try {
+          copied = JSON.parse(data);
+        } catch (error) {
+          console.error("Could not read copied chords:", error);
+          status.className = "save-status error";
+          status.textContent = "Could not read copied chords.";
+          return;
+        }
+        const blocks = chordBlocks();
+        const entry = input ? navigation.find((item) => item.input === input) : selected;
+        const start = entry ? blocks.indexOf(chordBlock(entry)) : -1;
+        const rows = Array.isArray(copied) && copied.length && !Array.isArray(copied[0]) ? [copied] : copied;
+        const valid = Array.isArray(rows) && rows.length > 0 && rows.every((row) =>
+          Array.isArray(row) && row.length > 0 && row.every((item) =>
+            item && (item.kind === "word" || item.kind === "gap") && Array.isArray(item.chords) &&
+            (item.kind !== "word" || item.chords.length <= 1) &&
+            item.chords.every((chord) => typeof chord === "string" && chord.length > 0 && chord.length <= 40)));
+        if (!valid || start < 0) {
+          status.className = "save-status error";
+          status.textContent = "Could not read copied chords.";
+          return;
+        }
+        const lineNumbers = [...new Set(blocks.filter((block) => block.kind === "word").map((block) => block.line))];
+        const firstLine = lineNumbers.indexOf(entry.line);
+        if (firstLine < 0 || firstLine + rows.length > lineNumbers.length) {
+          status.className = "save-status error";
+          status.textContent = "Not enough lyric lines after this chord to paste.";
+          return;
+        }
+        let offset = 0;
+        const lineEnds = sheet.text.split("\n").map((line) => {
+          const end = offset + line.length;
+          offset = end + 1;
+          return end;
+        });
+        const target = [], values = [];
+        rows.forEach((row, rowIndex) => {
+          const line = lineNumbers[firstLine + rowIndex];
+          const candidates = blocks.filter((block, index) => block.line === line &&
+            (isLyricBlock(blocks, index) || (rowIndex === 0 && index === start)));
+          const lineStart = rowIndex === 0 ? candidates.indexOf(blocks[start]) : 0;
+          const cells = candidates.slice(lineStart);
+          let extraIndex = (sheet.extras[lineEnds[line]] || []).length;
+          while (cells.length < row.length) {
+            cells.push({ kind: "extra", line, position: lineEnds[line], index: extraIndex++, input: { value: "" } });
+          }
+          target.push(...cells.slice(0, row.length));
+          values.push(...row);
+        });
+        const pasted = values.map((item, index) => target[index].kind !== "gap" && item.chords.length ?
+          [item.chords.join(" ")] : item.chords);
+        if (pasted.some((chords, index) => target[index].kind !== "gap" && chords[0]?.length > 40)) {
+          status.className = "save-status error";
+          status.textContent = "A pasted chord block is too long for a word.";
+          return;
+        }
+        const first = target[0];
+        setChordBlocks(target, pasted);
+        const next = chordBlocks().find((item) => sameChordBlock(item, first));
+        next?.input.focus({ preventScroll: true });
+      }, true);
+      document.addEventListener("paste", (event) => {
+        if (!rangeSel || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
+        const text = event.clipboardData?.getData("text/plain");
+        if (!text) return;
+        event.preventDefault();
+        replaceRange(text.replace(/\r\n?/g, "\n").replace(/\t/g, " "));
       });
 
       try {
@@ -915,17 +1529,20 @@
               (parsed.pauses !== undefined && (!parsed.pauses || typeof parsed.pauses !== "object" ||
                 Array.isArray(parsed.pauses) || Object.entries(parsed.pauses).some(([position, values]) =>
                   !/^\d+$/.test(position) || !Array.isArray(values) || values.some((value) => typeof value !== "string" || !value)))) ||
+              (parsed.extras !== undefined && (!parsed.extras || typeof parsed.extras !== "object" ||
+                Array.isArray(parsed.extras) || Object.entries(parsed.extras).some(([position, values]) =>
+                  !/^\d+$/.test(position) || !Array.isArray(values) || values.some((value) => typeof value !== "string" || value.length > 40)))) ||
               !parsed.chords || typeof parsed.chords !== "object" || Array.isArray(parsed.chords) ||
               Object.entries(parsed.chords).some(([position, chord]) => !/^\d+$/.test(position) || typeof chord !== "string")) {
             throw new Error("Saved song sheet has an invalid format");
           }
-          sheet = { text: parsed.text, chords: parsed.chords, pauses: parsed.pauses ?? {} };
+          sheet = { text: parsed.text, chords: parsed.chords, pauses: parsed.pauses ?? {}, extras: parsed.extras ?? {} };
           // Sheets saved with separate title and key fields get them as a first line instead.
           const head = [(parsed.title || "").trim(), parsed.songKey ? `(${parsed.songKey.trim()})` : ""].filter(Boolean).join(" ");
           if (head) {
             const shift = head.length + 1;
             const move = (map) => Object.fromEntries(Object.entries(map).map(([position, value]) => [Number(position) + shift, value]));
-            sheet = { text: head + "\n" + sheet.text, chords: move(sheet.chords), pauses: move(sheet.pauses) };
+            sheet = { text: head + "\n" + sheet.text, chords: move(sheet.chords), pauses: move(sheet.pauses), extras: move(sheet.extras) };
           }
         }
         status.textContent = "Saved on this device";
@@ -939,15 +1556,17 @@
 
       $("newSheet").addEventListener("click", () => {
         if (sheet.text && !confirm("Start a new sheet? This will replace the sheet saved on this device.")) return;
-        sheet = { text: "", chords: {}, pauses: {} };
+        sheet = { text: "", chords: {}, pauses: {}, extras: {} };
         save();
         render();
       });
       $("printSheet").addEventListener("click", () => {
         spaceChords();
+        layoutColumns();
         window.print();
       });
       window.addEventListener("beforeprint", () => {
+        layoutColumns();
         const pages = $("printPages");
         pages.replaceChildren();
         const staging = document.createElement("div");
