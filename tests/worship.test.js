@@ -272,6 +272,18 @@ test("clicking blank line space focuses that line and empty space below the lyri
   assert.equal(app.active(), app.tail(0));
 });
 
+test("clicking the upper half of an empty line focuses its lyric input", () => {
+  const app = createApp();
+  app.setLyrics("First\n\nLast");
+  const row = app.row(1), slot = app.tail(1).parentNode;
+  slot.parentElement = row;
+  app.lyric(0, 0).focus();
+  app.elements.get("lyrics").dispatch("click", { target: slot, clientX: 400, clientY: 2 });
+  assert.equal(app.active(), app.tail(1));
+  app.type(app.active(), "New");
+  assert.equal(app.text(), "First\nNew\nLast");
+});
+
 test("legacy cue chords survive edits to other words", () => {
   const storage = new Map([["worship-notes-sheet-v1", JSON.stringify({
     title: "", text: "Verse 1\nFirst words", chords: { 0: "G", 8: "C" }, pauses: { 7: ["D"] },

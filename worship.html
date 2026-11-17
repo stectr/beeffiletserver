@@ -69,7 +69,7 @@
     .key-word, .key-line { font-weight: bold; font-style: italic; }
     .key-line .lyric-input,
     .key-word .lyric-input { font-weight: bold; font-style: italic; }
-    .lyric-line.blank .tail-slot { display: block; width: calc(100% + .2em); margin: 0 -.1em; }
+    .lyric-line.blank .tail-slot { display: block; width: calc(100% + .2em); margin: 0 -.1em; cursor: text; }
     .lyric-line.blank .tail-slot .lyric-input { left: .1em; width: calc(100% - .2em); }
     .line-slot { position: relative; display: block; min-height: 1.3em; margin: 1.3em -.1em 0; border-radius: 5px; }
     .line-size { display: block; visibility: hidden; padding: 0 .1em; min-height: 1.3em; line-height: 1.3; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
@@ -136,7 +136,7 @@
       </div>
     </article>
     <section class="help" aria-label="Song sheet help">
-      <p>Hover over a word to highlight it, then click above it to enter a chord or click the word to edit it. Click at the end of a line to add words; Enter starts a new line and pasting adds whole lyrics. Tab moves through chords and pauses; Shift+Tab moves back. Delete chord text to remove it. Shift+Enter starts a new page. Type the song title on the first line and add its key in brackets, like <code>As the Deer (G)</code>, and the key shows in bold italics.</p>
+      <p>Hover over a word to highlight it, then click above it to enter a chord or click the word to edit it. Click at the end of a line to add words, or anywhere on an empty line to start typing; Enter starts a new line and pasting adds whole lyrics. Tab moves through chords and pauses; Shift+Tab moves back. Delete chord text to remove it. Shift+Enter starts a new page. Type the song title on the first line and add its key in brackets, like <code>As the Deer (G)</code>, and the key shows in bold italics.</p>
       <details>
         <summary>Formatting and page tips</summary>
         <p>Lines starting with Verse, Chorus, Bridge, or ( are bold section cues. For an instrumental line, include bar lines, e.g. <code>Intro: | G / / / | A / / / |</code>.</p>
@@ -825,6 +825,11 @@
       }
 
       lyrics.addEventListener("click", (event) => {
+        if (event.target.classList?.contains("tail-slot") && event.target.parentElement?.classList.contains("blank")) {
+          const input = event.target.querySelector(".lyric-input");
+          if (input) placeCaret(input, input.value.length);
+          return;
+        }
         const slot = gapTarget(event);
         if (!slot) return;
         const entry = lyricInputs.find((item) => item.input === slot.element.querySelector(".lyric-input"));

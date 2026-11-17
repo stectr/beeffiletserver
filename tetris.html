@@ -1090,7 +1090,7 @@
           overlayDetail.textContent = result.entries.some((entry) => entry.name === result.entry.name
             && entry.score === result.entry.score && entry.date === result.entry.date)
             ? "Score saved to the leaderboard."
-            : "Score submitted. The leaderboard keeps its top 10.";
+            : "Score saved. The leaderboard shows each player's best score in the top 10.";
           overlayAction.textContent = "New game";
         } catch (error) {
           console.warn("Could not submit the Tetris score:", error);

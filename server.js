@@ -21,9 +21,7 @@ const leaderboardReady = fs.promises.readFile(LEADERBOARD_FILE, "utf8")
         && Number.isSafeInteger(entry.score) && entry.score >= 0
         && Number.isSafeInteger(entry.lines) && entry.lines >= 0
         && Number.isSafeInteger(entry.level) && entry.level >= 1
-        && typeof entry.date === "string")
-      .sort((a, b) => b.score - a.score || b.lines - a.lines)
-      .slice(0, LEADERBOARD_LIMIT);
+        && typeof entry.date === "string");
   })
   .catch((error) => {
     if (error.code === "ENOENT") return;
@@ -60,18 +58,28 @@ async function readJsonBody(req, maxBytes = 4096) {
 
 function saveLeaderboardEntry(entry) {
   const operation = leaderboardWrite.then(async () => {
-    const next = [...leaderboard, entry]
-      .sort((a, b) => b.score - a.score || b.lines - a.lines || a.date.localeCompare(b.date))
-      .slice(0, LEADERBOARD_LIMIT);
+    const next = [...leaderboard, entry];
     await fs.promises.mkdir(path.dirname(LEADERBOARD_FILE), { recursive: true });
     const temporaryFile = `${LEADERBOARD_FILE}.${process.pid}.tmp`;
     await fs.promises.writeFile(temporaryFile, JSON.stringify(next, null, 2), { mode: 0o600 });
     await fs.promises.rename(temporaryFile, LEADERBOARD_FILE);
     leaderboard = next;
-    return leaderboard;
+    return getLeaderboardEntries();
   });
   leaderboardWrite = operation.then(() => undefined, () => undefined);
   return operation;
+}
+
+function getLeaderboardEntries() {
+  const sorted = [...leaderboard]
+    .sort((a, b) => b.score - a.score || b.lines - a.lines || a.date.localeCompare(b.date));
+  const names = new Set();
+  return sorted.filter((entry) => {
+    const name = entry.name.normalize("NFC").trim().toLowerCase();
+    if (names.has(name)) return false;
+    names.add(name);
+    return true;
+  }).slice(0, LEADERBOARD_LIMIT);
 }
 
 const esc = (s) =>
@@ -328,7 +336,7 @@ http
     if (u.pathname === "/api/tetris/leaderboard") {
       try {
         await leaderboardReady;
-        if (req.method === "GET") return sendJson(res, 200, { entries: leaderboard });
+        if (req.method === "GET") return sendJson(res, 200, { entries: getLeaderboardEntries() });
         if (req.method !== "POST") {
           res.setHeader("Allow", "GET, POST");
           return sendJson(res, 405, { error: "Method not allowed" });

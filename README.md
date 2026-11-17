@@ -85,7 +85,7 @@ A small Node.js website that fetches Alistair Begg's daily devotional and its Fu
 ## How it works
 
 - `server.js` fetches and parses the source page, caches each day's devotional in memory for 30 minutes, returns the rendered HTML, and serves the Tetris leaderboard API.
-- Tetris leaderboard entries are stored in `tetris-leaderboard.json` in this project folder; the file is created automatically after the first successful score submission. After editing `server.js`, restart the Node process using the same method you used to start it.
+- All submitted Tetris scores are stored in `tetris-leaderboard.json` in this project folder; the file is created automatically after the first successful score submission. The leaderboard displays the top 10 players by their best score, matching names case-insensitively (including all submissions named Anonymous). After editing `server.js`, restart the Node process using the same method you used to start it.
 - `icon2.png` is Devo's browser and iOS home-screen icon; `tetris-icon.png` is the Tetris S-block home-screen and browser icon.
 - There is no build step, package install, or separate HTML file. The page markup and CSS are in `server.js`.
 - Node.js 18 or newer is required (the app uses the built-in `fetch` API).
