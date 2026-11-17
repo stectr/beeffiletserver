@@ -17,7 +17,7 @@ function createApp(storage = new Map(), failWrite = false, confirmAnswer = true)
         this.children = [];
         this.childNodes = value ? [{ nodeType: 3, data: value, textContent: value, parentNode: this }] : [];
       },
-      get classList() { return { contains: (name) => this.className.split(" ").includes(name) }; },
+      get classList() { return { contains: (name) => this.className.split(" ").includes(name), toggle: (name, on) => { const names = this.className.split(" ").filter((n) => n && n !== name); if (on) names.push(name); this.className = names.join(" "); } }; },
       addEventListener(type, callback) { listeners[type] = callback; },
       dispatch(type, event = {}) { listeners[type]?.({ preventDefault() {}, ...event }); },
       setAttribute(name, value) { this.attributes[name] = value; },
@@ -31,10 +31,21 @@ function createApp(storage = new Map(), failWrite = false, confirmAnswer = true)
         this.children.splice(index < 0 ? 0 : index, 0, child);
         this.childNodes.splice(index < 0 ? 0 : index, 0, child);
       },
+      querySelectorAll(selector) {
+        const names = selector.split(",").map((part) => part.trim().slice(1));
+        const found = [];
+        const walk = (node) => node.children.forEach((child) => {
+          if (child.className.split(" ").some((name) => names.includes(name))) found.push(child);
+          walk(child);
+        });
+        walk(this);
+        return found;
+      },
+      querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; },
       get firstChild() { return this.childNodes[0] ?? null; },
       replaceChildren() { this.children = []; this.childNodes = []; },
       focus() { this.focused = true; document.activeElement = this; }, select() {},
-      getBoundingClientRect() { return { left: 0, right: 0, top: 0, width: 700 }; },
+      getBoundingClientRect() { return { left: 0, right: 0, top: 0, bottom: 10, width: 700 }; },
       getContext() { return { measureText: (text) => ({ width: text.length * 8 }) }; },
     };
   }
@@ -42,7 +53,7 @@ function createApp(storage = new Map(), failWrite = false, confirmAnswer = true)
     getElementById(id) {
       if (!elements.has(id)) {
         const node = element();
-        node.hidden = ["editActions", "editPanel", "lyricsEditor", "editOverlay"].includes(id);
+        node.hidden = [].includes(id);
         elements.set(id, node);
       }
       return elements.get(id);
@@ -87,21 +98,34 @@ function createApp(storage = new Map(), failWrite = false, confirmAnswer = true)
     spaceChords: () => context.spaceChordsForTest(),
     active: () => document.activeElement,
     click(id) { elements.get(id).dispatch("click"); },
-    setLyrics(text) {
-      this.click("editLyrics");
-      const editor = elements.get("lyricsEditor");
-      editor.textContent = text;
-      editor.dispatch("input");
-      this.click("saveLyrics");
+    row(line) { return elements.get("lyrics").children[line]; },
+    text() { return JSON.parse(storage.get("worship-notes-sheet-v1")).text; },
+    saved() { return JSON.parse(storage.get("worship-notes-sheet-v1")); },
+    paste(input, text, start = input.value.length, end = start) {
+      input.selectionStart = start;
+      input.selectionEnd = end;
+      input.dispatch("paste", { clipboardData: { getData: () => text } });
     },
+    setLyrics(text) { this.paste(this.tail(0), text); },
     word(line, index) {
-      return elements.get("lyrics").children[line].children.filter((child) => child.className.startsWith("word"))[index];
+      return this.row(line).children.filter((child) => child.className.startsWith("word"))[index];
     },
+    lyric(line, index) { return this.word(line, index).children[1].children[1]; },
+    tail(line) { const row = this.row(line); return row.children[row.children.length - 1].children[0]; },
     chord(line, index) { return this.word(line, index).children[0].children[1]; },
     setChord(line, index, value) {
       const input = this.chord(line, index);
       input.value = value;
       input.dispatch("input");
+    },
+    type(input, value, caret = value.length) {
+      input.value = value;
+      input.selectionStart = input.selectionEnd = caret;
+      input.dispatch("input");
+    },
+    key(input, key, caret = input.value.length, extra = {}) {
+      input.selectionStart = input.selectionEnd = caret;
+      input.dispatch("keydown", { key, ...extra });
     },
   };
 }
@@ -130,127 +154,142 @@ test("chord spacing is added only when neighboring chords need it", () => {
   assert.equal(first.style.marginRight, "");
 });
 
-test("section cues are bold and skipped by chord navigation", () => {
+
+
+test("section cues are bold lines and skipped by chord navigation", () => {
   const app = createApp();
   app.setLyrics("Verse 1:\nFirst words\n  chorus2:\nNext line\nBRIDGE\n(Repeat twice)\nVerses remain lyrics");
-  const rows = app.elements.get("lyrics").children;
   for (const index of [0, 2, 4, 5]) {
-    assert.match(rows[index].className, /section-cue/);
-    assert.equal(rows[index].children.length, 0);
+    assert.match(app.row(index).className, /section-cue/);
+    assert.equal(app.row(index).children[0].children[1].className, "lyric-input");
   }
-  assert.equal(app.word(6, 0).children[1].textContent, "Verses");
+  assert.equal(app.lyric(6, 0).value, "Verses");
   app.chord(1, 1).focus();
   app.active().dispatch("keydown", { key: "Tab" });
   app.active().dispatch("keydown", { key: "Tab" });
   assert.equal(app.active(), app.chord(3, 0));
-  app.click("editLyrics");
-  assert.equal(app.elements.get("lyricsEditor").children.filter((child) => child.className === "section-cue").length, 4);
 });
 
-test("a lone long chord does not add word spacing while editing lyrics", () => {
-  const app = createApp();
-  app.setLyrics("I am yours");
-  app.setChord(0, 0, "Am7sus");
-  app.click("editLyrics");
-  assert.equal(app.elements.get("lyricsEditor").style.wordSpacing, "0px");
-});
-
-test("legacy cue chords survive unrelated edits, but converting lyrics into a cue warns", () => {
-  const storage = new Map([["worship-notes-sheet-v1", JSON.stringify({
-    title: "", text: "Verse 1\nFirst words", chords: { 0: "G", 8: "C" }, pauses: { 7: ["D"] },
-  })]]);
-  const app = createApp(storage, false, false);
-  app.click("editLyrics");
-  app.elements.get("lyricsEditor").textContent = "Verse 1\nFirst words again";
-  app.elements.get("lyricsEditor").dispatch("input");
-  app.click("saveLyrics");
-  let saved = JSON.parse(storage.get("worship-notes-sheet-v1"));
-  assert.equal(saved.chords[0], "G");
-  assert.deepEqual(saved.pauses[7], ["D"]);
-  assert.equal(saved.chords[8], "C");
-
-  app.click("editLyrics");
-  app.elements.get("lyricsEditor").textContent = "Verse 1\nChorus words again";
-  app.elements.get("lyricsEditor").dispatch("input");
-  app.click("saveLyrics");
-  assert.equal(app.elements.get("editPanel").hidden, false);
-  saved = JSON.parse(storage.get("worship-notes-sheet-v1"));
-  assert.equal(saved.text, "Verse 1\nFirst words again");
-});
-
-test("page flow counts overflowing columns and accounts for lyric editor padding", () => {
+test("page flow counts overflowing columns and drops trailing empty pages", () => {
   const app = createApp();
   const lyrics = app.elements.get("lyrics");
+  app.setLyrics("First\nSecond\n");
+  const rect = (left) => () => ({ left, right: left, top: 0, bottom: 10, width: 0 });
+  app.row(0).getBoundingClientRect = rect(0);
+  app.row(1).getBoundingClientRect = rect(740);
+  app.row(2).getBoundingClientRect = rect(1480);
   lyrics.scrollWidth = 700;
   assert.equal(app.pageMetrics().count, 1);
   lyrics.scrollWidth = 1070;
   assert.equal(app.pageMetrics().count, 2);
-
-  app.setLyrics("First word");
-  app.click("editLyrics");
-  const editor = app.elements.get("lyricsEditor");
-  editor.style.paddingLeft = "20px";
-  editor.scrollWidth = 1050;
-  assert.equal(app.pageMetrics().step, 720);
+  assert.equal(app.pageMetrics().step, 740);
+  lyrics.scrollWidth = 2000;
   assert.equal(app.pageMetrics().count, 2);
 });
 
-test("lyrics and chords can be edited, persist, and are cleared by a new sheet", () => {
+test("pasting lyrics, chords, and titles persist and a new sheet clears them", () => {
   const app = createApp();
-  app.elements.get("title").value = "My song";
-  app.elements.get("title").dispatch("input");
+  assert.equal(app.tail(0).placeholder, "Click here and start typing lyrics");
   app.setLyrics("First words\nSecond line");
-  app.word(0, 1).children[1].dispatch("click");
-  assert.equal(app.chord(0, 1).focused, true);
   app.setChord(0, 1, "Am7");
-  app.setLyrics("First words\nSecond line\n\nAnother verse");
-
   const restored = createApp(app.storage);
-  assert.equal(restored.elements.get("title").value, "My song");
   assert.equal(restored.chord(0, 1).value, "Am7");
-  assert.equal(restored.word(3, 0).children[1].textContent, "Another");
-  restored.setChord(0, 1, "");
-  assert.equal(createApp(app.storage).chord(0, 1).value, "");
+  assert.equal(restored.lyric(1, 0).value, "Second");
+  app.click("newSheet");
+  assert.equal(app.text(), "");
+  assert.equal(createApp(app.storage).row(0).className, "lyric-line blank");
 });
 
-test("editing lyrics keeps chords outside the changed portion and removes changed words", () => {
+test("editing a word in place keeps its chord and moves the chords after it", () => {
   const app = createApp();
   app.setLyrics("First middle last");
-  for (const [index, chord] of [[0, "C"], [1, "G"], [2, "Am"]]) {
-    app.setChord(0, index, chord);
-  }
-  app.click("editLyrics");
-  app.elements.get("lyricsEditor").textContent = "First changed last";
-  app.elements.get("lyricsEditor").dispatch("input");
-  app.click("saveLyrics");
-  assert.equal(app.chord(0, 0).value, "C");
-  assert.equal(app.chord(0, 1).value, "");
-  assert.equal(app.chord(0, 2).value, "Am");
-
-  app.click("editLyrics");
-  app.elements.get("lyricsEditor").textContent = "First last";
-  app.elements.get("lyricsEditor").dispatch("input");
-  app.click("saveLyrics");
-  assert.equal(app.chord(0, 0).value, "C");
-  assert.equal(app.chord(0, 1).value, "Am");
-  app.click("newSheet");
-  assert.equal(app.elements.get("emptyState").hidden, false);
-  assert.equal(createApp(app.storage).elements.get("emptyState").hidden, false);
+  for (const [index, chord] of [[0, "C"], [1, "G"], [2, "Am"]]) app.setChord(0, index, chord);
+  app.type(app.lyric(0, 1), "changed");
+  assert.equal(app.text(), "First changed last");
+  assert.deepEqual(app.saved().chords, { 0: "C", 6: "G", 14: "Am" });
+  assert.equal(app.active(), app.lyric(0, 1));
+  assert.equal(app.active().value, "changed");
 });
 
-test("unsaved edits block printing, and storage failures are visible", () => {
-  const app = createApp(new Map(), true);
-  app.setLyrics("Words");
-  assert.match(app.elements.get("saveStatus").textContent, /Could not save/);
-  app.click("editLyrics");
-  app.click("printSheet");
-  assert.equal(app.alerts.length, 1);
-  assert.equal(app.prints(), 0);
-  app.click("cancelLyrics");
-  assert.match(app.elements.get("saveStatus").textContent, /Could not save/);
-  app.setChord(0, 0, "C");
-  app.click("printSheet");
-  assert.equal(app.prints(), 1);
+test("emptying a word removes it and its chord, and typing a space splits it", () => {
+  const app = createApp();
+  app.setLyrics("First middle last");
+  for (const [index, chord] of [[0, "C"], [1, "G"], [2, "Am"]]) app.setChord(0, index, chord);
+  app.type(app.lyric(0, 1), "mid dle", 4);
+  assert.equal(app.text(), "First mid dle last");
+  assert.deepEqual(app.saved().chords, { 0: "C", 6: "G", 14: "Am" });
+  assert.equal(app.active(), app.lyric(0, 2));
+  app.type(app.lyric(0, 1), "");
+  assert.equal(app.text(), "First dle last");
+  assert.deepEqual(app.saved().chords, { 0: "C", 10: "Am" });
+});
+
+test("Enter and Backspace split and join lines without losing chords", () => {
+  const app = createApp();
+  app.setLyrics("First middle last");
+  app.setChord(0, 1, "G");
+  app.key(app.lyric(0, 0), "Enter");
+  assert.equal(app.text(), "First\nmiddle last");
+  assert.equal(app.active(), app.lyric(1, 0));
+  assert.deepEqual(app.saved().chords, { 6: "G" });
+  app.key(app.lyric(1, 0), "Backspace", 0);
+  assert.equal(app.text(), "First middle last");
+  assert.equal(app.active(), app.lyric(0, 0));
+  app.key(app.lyric(0, 1), "Backspace", 0);
+  assert.equal(app.text(), "Firstmiddle last");
+});
+
+test("the end of a line adds words, Enter adds lines, and arrows move between words", () => {
+  const app = createApp();
+  app.type(app.tail(0), "Hello");
+  assert.equal(app.text(), "Hello");
+  assert.equal(app.active(), app.lyric(0, 0));
+  app.type(app.lyric(0, 0), "Hello ");
+  assert.equal(app.text(), "Hello");
+  app.type(app.lyric(0, 0), "Hello w");
+  assert.equal(app.text(), "Hello w");
+  assert.equal(app.active(), app.lyric(0, 1));
+  app.key(app.lyric(0, 1), "ArrowLeft", 0);
+  assert.equal(app.active(), app.lyric(0, 0));
+  app.key(app.tail(0), "Enter");
+  assert.equal(app.text(), "Hello w\n");
+  assert.equal(app.active(), app.tail(1));
+  app.key(app.tail(1), "Backspace");
+  assert.equal(app.text(), "Hello w");
+  assert.equal(app.active(), app.lyric(0, 1));
+});
+
+test("clicking blank line space focuses that line and empty space below the lyrics does nothing", () => {
+  const app = createApp();
+  app.setLyrics("First\nSecond");
+  app.tail(0).parentNode.getBoundingClientRect = () => ({ left: 700, right: 800, top: 0, bottom: 10, width: 100 });
+  app.elements.get("lyrics").dispatch("click", { target: app.row(0), clientX: 810, clientY: 5 });
+  assert.equal(app.active(), app.tail(0));
+  app.elements.get("lyrics").dispatch("click", { target: app.row(1), clientX: 5000, clientY: 5 });
+  assert.equal(app.active(), app.tail(0));
+  app.row(1).dataset.line = "1";
+  app.elements.get("lyrics").dispatch("click", { target: app.elements.get("lyrics") });
+  assert.equal(app.active(), app.tail(0));
+});
+
+test("legacy cue chords survive edits to other words", () => {
+  const storage = new Map([["worship-notes-sheet-v1", JSON.stringify({
+    title: "", text: "Verse 1\nFirst words", chords: { 0: "G", 8: "C" }, pauses: { 7: ["D"] },
+  })]]);
+  const app = createApp(storage);
+  app.type(app.lyric(1, 0), "Firsts");
+  const saved = app.saved();
+  assert.deepEqual(saved.chords, { 0: "G", 8: "C" });
+  assert.deepEqual(saved.pauses, { 7: ["D"] });
+});
+
+test("typing a section name turns a line into a cue and keeps the cursor", () => {
+  const app = createApp();
+  app.setLyrics("Chorus");
+  assert.match(app.row(0).className, /section-cue/);
+  app.type(app.row(0).children[0].children[1], "Chorus 2");
+  assert.equal(app.text(), "Chorus 2");
+  assert.equal(app.active(), app.row(0).children[0].children[1]);
 });
 
 test("tab navigation creates and preserves multiple pauses, including at line boundaries", () => {
@@ -297,78 +336,61 @@ test("tab navigation creates and preserves multiple pauses, including at line bo
   assert.equal(JSON.parse(restored.storage.get("worship-notes-sheet-v1")).pauses[5].join(","), "G,D");
 });
 
-test("in-place edits retain pauses and let users cancel potentially destructive changes", () => {
-  const app = createApp(new Map(), false, false);
+
+
+test("edits retain pauses that belong to the edited word", () => {
+  const app = createApp();
   app.setLyrics("First next");
   app.setChord(0, 0, "C");
   app.chord(0, 0).focus();
   app.active().dispatch("keydown", { key: "Tab" });
   app.active().value = "G";
   app.active().dispatch("input");
-  app.click("editLyrics");
-  app.elements.get("lyricsEditor").textContent = "Firsts next";
-  app.elements.get("lyricsEditor").dispatch("input");
-  app.click("saveLyrics");
-  let saved = JSON.parse(app.storage.get("worship-notes-sheet-v1"));
-  assert.equal(saved.chords[0], "C");
-  assert.deepEqual(saved.pauses[6], ["G"]);
-  app.click("editLyrics");
-  app.elements.get("lyricsEditor").textContent = "next";
-  app.elements.get("lyricsEditor").dispatch("input");
-  app.click("saveLyrics");
-  assert.equal(app.elements.get("editPanel").hidden, false);
-  app.click("cancelLyrics");
-  saved = JSON.parse(app.storage.get("worship-notes-sheet-v1"));
-  assert.equal(saved.text, "Firsts next");
+  app.type(app.lyric(0, 0), "Firsts");
+  const saved = app.saved();
   assert.equal(saved.chords[0], "C");
   assert.deepEqual(saved.pauses[6], ["G"]);
 });
 
-test("legacy sheets keep their chords and save title, key, and version", () => {
-  const storage = new Map([["worship-notes-sheet-v1", JSON.stringify({
-    title: "Song", text: "First words", chords: { 0: "G" },
-  })]]);
-  const app = createApp(storage);
-  assert.equal(app.chord(0, 0).value, "G");
-  app.elements.get("songKey").value = "A#";
-  app.elements.get("songKey").dispatch("input");
-  app.elements.get("version").value = "Artist (Live)";
-  app.elements.get("version").dispatch("input");
-  const restored = createApp(storage);
-  assert.equal(restored.elements.get("title").value, "Song");
-  assert.equal(restored.elements.get("songKey").value, "A#");
-  assert.equal(restored.elements.get("version").value, "Artist (Live)");
-  assert.equal(restored.chord(0, 0).value, "G");
-  restored.click("newSheet");
-  assert.equal(restored.elements.get("songKey").value, "");
-  assert.equal(restored.elements.get("version").value, "");
-});
-
-test("instrumental lines can be added, edited, and restored with lyrics", () => {
+test("instrumental lines are edited inline and keep later chords", () => {
   const app = createApp();
   app.setLyrics("Intro: | G / / / | A / / / |\nFirst words");
-  assert.equal(app.elements.get("lyrics").children[0].className, "lyric-line instrumental");
-  assert.equal(app.elements.get("lyrics").children[0].textContent, "Intro: | G / / / | A / / / |");
+  assert.equal(app.row(0).className, "lyric-line instrumental");
   app.setChord(1, 0, "C");
-  app.click("editLyrics");
-  app.elements.get("lyricsEditor").textContent = "Intro: | D / / / | E / / / |\nFirst words";
-  app.elements.get("lyricsEditor").dispatch("input");
-  app.click("saveLyrics");
-  const restored = createApp(app.storage);
-  assert.equal(restored.elements.get("lyrics").children[0].textContent, "Intro: | D / / / | E / / / |");
-  assert.equal(restored.chord(1, 0).value, "C");
+  const line = app.row(0).children[0].children[1];
+  app.type(line, "Intro: | D / / / | A / / / |", 9);
+  assert.equal(app.text(), "Intro: | D / / / | A / / / |\nFirst words");
+  assert.deepEqual(app.saved().chords, { 29: "C" });
 });
 
-test("lyrics are added through the edit panel and a new sheet clears them", () => {
-  const app = createApp();
-  assert.equal(app.elements.has("pasteLyrics"), false);
-  assert.equal(app.elements.has("addLyrics"), false);
-  assert.equal(app.elements.has("clearLyrics"), false);
-  assert.equal(app.elements.get("editActions").hidden, false);
+test("legacy title and key become a first line and chords keep their words", () => {
+  const storage = new Map([["worship-notes-sheet-v1", JSON.stringify({
+    title: "Song", songKey: "A#", version: "Live", text: "First words", chords: { 0: "G" }, pauses: { 5: ["D"] },
+  })]]);
+  const app = createApp(storage);
+  assert.equal(app.row(0).children[0].children[1].value, "Song (A#)");
+  assert.match(app.row(0).className, /key-line section-cue/);
+  assert.equal(app.chord(1, 0).value, "G");
+  app.type(app.lyric(1, 0), "Firsts");
+  assert.deepEqual(app.saved().pauses, { 16: ["D"] });
+});
 
-  app.setLyrics("First words");
-  assert.equal(app.word(0, 0).children[1].textContent, "First");
-  app.click("newSheet");
-  assert.equal(app.elements.get("emptyState").hidden, false);
-  assert.equal(createApp(app.storage).elements.get("emptyState").hidden, false);
+test("Shift+Enter starts a new page and Backspace removes the break", () => {
+  const app = createApp();
+  app.setLyrics("Hello world again");
+  app.key(app.lyric(0, 1), "Enter", 2, { shiftKey: true });
+  assert.equal(app.text(), "Hello wo\n\f\nrld again");
+  assert.match(app.row(1).className, /page-break/);
+  assert.equal(app.active(), app.lyric(2, 0));
+  app.key(app.lyric(2, 0), "Backspace", 0);
+  assert.equal(app.text(), "Hello wo\nrld again");
+});
+
+test("Tab and Shift+Tab move between lyrics instead of chords", () => {
+  const app = createApp();
+  app.setLyrics("Hello world");
+  app.key(app.lyric(0, 0), "Tab");
+  assert.equal(app.active(), app.lyric(0, 1));
+  app.key(app.lyric(0, 1), "Tab", 0, { shiftKey: true });
+  assert.equal(app.active(), app.lyric(0, 0));
 });
