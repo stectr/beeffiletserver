@@ -194,7 +194,7 @@
   <main>
     <header class="app-header">
       <div class="brand">
-        <h1>Chord Sheet Generator <span>v1.5</span></h1>
+        <h1>Chord Sheet Generator <span>v2.67</span></h1>
       </div>
       <div class="actions" aria-label="Sheet actions">
         <button id="newSheet" type="button">New sheet</button>
@@ -207,7 +207,7 @@
     <details class="help">
       <summary>Formatting and page tips</summary>
       <ul>
-        <li><strong>Lyrics:</strong> Click a word or an empty line to type; paste lyrics to add multiple lines. Drag across lyrics or from the paper margin to select and copy them with their chords. Left and right arrows, including Ctrl or Cmd+arrow, move between boxes at their edges. Press Enter for a new line; Ctrl+A twice (Cmd+A on Mac) selects the whole sheet.</li>
+        <li><strong>Lyrics:</strong> Click a word or anywhere on an empty line to type; paste lyrics to add multiple lines. Click unused space in the upper or lower half of a row to edit its last chord or lyric. Drag across lyrics or from the paper margin to select and copy them with their chords. Left and right arrows, including Ctrl or Cmd+arrow, move between boxes at their edges. Press Enter for a new line; Ctrl+A twice (Cmd+A on Mac) selects the whole sheet.</li>
         <li><strong>Chords:</strong> Click above a word to add a chord. A hyphen splits a word into chord blocks, such as <code>melo-dious</code>. Left and right arrows, including Ctrl or Cmd+arrow, move through a chord and between boxes at their edges; up and down move between lines. Enter moves the word under the chord to a new line; Shift+Enter starts a new page. Tab moves chord text after the cursor forward; Shift+Tab before a chord moves it back only if the previous block is empty. Backspace at the start moves it back and combines with the previous chord, or navigates back if the block is empty. Ctrl or Cmd+Backspace in an empty block jumps to the previous non-empty chord. Drag across chords to copy them; pasted chords keep their lines, skipping section headings and adding blocks when needed.</li>
         <li><strong>Title and key:</strong> Add the key in parentheses, such as <code>Song title (G)</code>, for a compact bold italic title.</li>
         <li><strong>Sections:</strong> Lines starting with Verse, Chorus, Bridge, or <code>(</code> are bold and have no chord slots.</li>
@@ -1604,8 +1604,8 @@
       }
 
       lyrics.addEventListener("click", (event) => {
-        if (chordPointerHandled) {
-          chordPointerHandled = false;
+        if (paperPointerHandled) {
+          paperPointerHandled = false;
           event.preventDefault();
           return;
         }
@@ -1632,7 +1632,7 @@
         lyrics.querySelectorAll(".editing-row").forEach((row) => row.classList.remove("editing-row"));
         event.target.closest(".lyric-line")?.classList.add("editing-row");
       });
-      let dragAnchor = null, rangeSel = null, chordSel = null, wholeSheet = false, selectAllInput = null, chordPointerHandled = false;
+      let dragAnchor = null, rangeSel = null, chordSel = null, wholeSheet = false, selectAllInput = null, paperPointerHandled = false;
       const chordClipboardType = "application/x-worship-chords";
       const lyricClipboardType = "application/x-worship-lyrics";
       function lyricFragment(from, to) {
@@ -2083,18 +2083,63 @@
         return best;
       }
 
+      function rowClickTarget(event) {
+        const row = event.target.closest?.(".lyric-line");
+        if (!row || row.classList.contains("page-break") || row.classList.contains("snapshot-placeholder") ||
+            event.target.closest(".lyric-input, .chord-input")) return null;
+        const line = Number(row.dataset.line);
+        const words = [...row.querySelectorAll(".word")].map((element) => ({ element, box: element.getBoundingClientRect() }));
+        if (!words.length) {
+          const entry = lyricInputs.find((item) => item.line === line && (item.kind === "line" || item.kind === "tail"));
+          if (!entry || (entry.kind === "line" && !event.target.closest(".line-slot"))) return null;
+          return { kind: "lyric", entry };
+        }
+        const distance = ({ box }) => Math.max(box.top - event.clientY, event.clientY - box.bottom, 0);
+        const nearest = words.reduce((best, word) => Math.min(best, distance(word)), Infinity);
+        const last = words.filter((word) => distance(word) === nearest).at(-1);
+        if (event.clientY >= (last.box.top + last.box.bottom) / 2) {
+          const input = last.element.querySelector(".lyric-input");
+          const entry = lyricInputs.find((item) => item.input === input) || lyricInputs[Number(input.dataset.lyric)];
+          return entry ? { kind: "lyric", entry } : null;
+        }
+        const scale = columnGeometry().scale;
+        const sameLine = [...row.querySelectorAll(".chord-input")].filter((input) => {
+          const holder = input.closest(".word, .pause");
+          return input.value.trim() && holder &&
+            Math.abs(holder.getBoundingClientRect().top - last.box.top) < scale;
+        });
+        const input = sameLine.at(-1) || last.element.querySelector(".chord-input");
+        const entry = navigation.find((item) => item.input === input) || navigation[Number(input.dataset.nav)];
+        return entry ? { kind: "chord", entry } : null;
+      }
+
       document.addEventListener("pointerdown", (event) => {
         selectAllInput = null;
-        chordPointerHandled = false;
+        paperPointerHandled = false;
         clearRange();
         const input = event.target.closest?.(".lyric-input, .chord-input");
         if (!input) {
+          const rowTarget = event.button === 0 && rowClickTarget(event);
+          if (rowTarget) {
+            const snapshot = event.target.closest(".page-snapshot");
+            if (snapshot) {
+              const page = snapshot.closest(".paper-page");
+              const index = [...$("paperStack").children].indexOf(page);
+              if (index >= 0) activatePage(index, pageMetrics().step, false);
+            }
+            dragAnchor = rowTarget;
+            paperPointerHandled = true;
+            event.preventDefault();
+            placeCaret(rowTarget.entry.input, fieldValue(rowTarget.entry.input).length);
+            schedulePreview();
+            return;
+          }
           const onPaper = event.target.closest?.(".paper-page");
           const chord = onPaper && chordEntryAt(event.clientX, event.clientY, true);
           const lyric = onPaper && !chord && lyricEntryAt(event.clientX, event.clientY);
           dragAnchor = chord ? { kind: "chord", entry: chord } : lyric ? { kind: "lyric", entry: lyric } : null;
           if (chord) {
-            chordPointerHandled = true;
+            paperPointerHandled = true;
             event.preventDefault();
             placeCaret(chord.input, chord.input.value.length);
           }
