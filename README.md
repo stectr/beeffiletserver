@@ -20,12 +20,13 @@ This repository contains four sites:
 - Tab moves chord text after the cursor forward, shifting occupied blocks as needed. Shift+Tab before a chord moves it backward only when the previous block is empty. Backspace at the start moves and combines a chord with the previous one, or navigates back if empty; Ctrl or Cmd+Backspace in an empty chord block jumps to the previous non-empty chord.
 - Drag across lyrics or from the paper margin to copy lyrics with chords; drag across chords to copy them separately. Pasting into ordinary text gives plain lyrics or a single line of chords. In the editor, pasted chords keep their lines, skip section headings, and add blocks after short lyric lines.
 - A title with its key in parentheses, intro lines, and section headings at a column's top use only their needed space. A single-word colon label takes precedence over title detection, is bold, and has no chord slots. `Intro:` immediately after a title stays compact with extra space above it. The in-app formatting and page tips cover chords, sections, and page breaks.
-- Sheets use 11-point Georgia in two columns on US Letter pages. Scroll through them, print, or save a PDF through the browser. The interface uses Inter from Google Fonts with a system-font fallback.
+- Sheets use 11-point Georgia in two columns on US Letter pages. Scroll through them, print, or save a PDF through the browser with the Print button or Ctrl/Cmd+P. The interface uses Inter from Google Fonts with a system-font fallback.
 
 ### Pages and saving
 
 - Sheets are saved in browser local storage on the current device and hostname, not on the server or across devices. A new sheet replaces the saved sheet; print or save a PDF before clearing browser data.
 - Export downloads an editable, versioned `.chords.json` file named from the title(s), stopping at each recognized key, e.g. `Desert Song (G)`. Import also accepts older `.worship.json` exports with lyrics and chord placements. With existing content, choose Replace, Add to sheet on a new page, or Cancel. Imports can be undone.
+- The save status and an “Import ‘It Is Well With My Soul (C)’” sample action appear below the formatting and page tips. The sample action asks whether to replace the current sheet, add it on a new page, or cancel.
 - Click a page preview on the right to jump to it, or drag previews or use their arrows to rearrange pages. Reordering adds page breaks to keep pages together and can be undone. Split a line that spans pages before rearranging. Backspace on an empty line after a page break removes it.
 - The sheet remains full-sized on narrow or zoomed-in screens; scroll horizontally to reach the sidebar. To move a sheet from the former worship hostname, export it there and import it on the new hostname; the old hostname may need to be restored temporarily.
 - Use only lyrics you have permission to reproduce.
@@ -43,6 +44,10 @@ server {
 
     location = / {
         try_files /chords.html =404;
+    }
+
+    location = "/It Is Well With My Soul (C).chords.json" {
+        try_files $uri =404;
     }
 
     location / {
