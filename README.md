@@ -1,18 +1,38 @@
 # Beeffilet sites
 
-This folder contains the `beeffilet.com` root page, the touch-only sTetris game for `tetris.beeffilet.com`, and the Devo Node.js app for `devo.beeffilet.com`.
+This repository contains four sites:
+
+| Site | Files | Purpose |
+| --- | --- | --- |
+| `beeffilet.com` | `index.html`, `robots.txt` | Minimal “Hi” page and crawler instructions |
+| `chords.beeffilet.com` | `chords.html` | Chord Sheet Generator |
+| `tetris.beeffilet.com` | `tetris.html`, `tetris-icon.png` | Touch-only sTetris |
+| `devo.beeffilet.com` | `server.js`, `icon2.png` | Devo app and Tetris leaderboard API |
 
 ## Chord Sheet Generator
 
-The editor is available on computers; phones and tablets display a notice instead. A separate notice appears when desktop-site mode is detected, using device signals and a local browser marker from an earlier mobile visit; detection cannot identify every device that spoofs a desktop.
+`chords.html` is a standalone editor for computers. Phones and tablets show a notice; detected desktop-site mode shows a separate notice. Detection uses device signals and a local marker from a prior mobile visit, so it cannot identify every device spoofing a desktop.
 
-`chords.html` is a standalone song-sheet editor for `chords.beeffilet.com`. Click or paste lyrics directly on the sheet, and click above a word to add a chord. Click unused space in the upper or lower half of a row to edit its last chord or lyric; clicking anywhere on an empty row starts a lyric. Hyphens split a word into separate chord blocks. Left and right arrows, including Ctrl or Cmd+arrow, move between lyric or chord boxes at their edges; up and down navigate lines. Enter on a word's chord moves that word and chord to a new line. Tab moves the chord text after the cursor forward, shifting occupied blocks as needed; Shift+Tab before a chord moves it backward only if the previous block is empty. Backspace at the start moves it back, combining it with an existing chord, or navigates to the previous block when empty. Ctrl or Cmd+Backspace in an empty chord block jumps to the previous non-empty chord. Drag across lyrics or from the paper margin to copy lyrics with their chords, or drag across chords to copy them separately. When pasted into ordinary text, copied lyrics appear as plain text and copied chords appear on one line. In the editor, copied chords retain their lines when pasted, skipping section headings and adding chord blocks after short lyric lines. A title with its key in parentheses uses only the space it needs, as do intro lines and section headings at the top of a column. Lines starting with a word and colon have a bold label and no chord slots; an `Intro:` immediately after a title remains compact, with extra space above it. The formatting and page tips dropdown above the sheet explains chords, sections, and page breaks. The sheet uses 11-point Georgia text in two columns on US Letter pages; scroll through the pages, or print or save a PDF using the browser's print dialog.
+### Editing and formatting
 
-The current sheet is saved in browser local storage on that device, not on the server or across devices or hostnames. Use Export to download an editable versioned `.chords.json` file named from the sheet title(s); titles stop at their recognized musical key, such as `Desert Song (G)`. Import also accepts older `.worship.json` exports, including lyrics and chord placements. When the sheet already has content, choose Replace, Add to sheet (starting on a new page), or Cancel. Click a page preview on the right to jump to it, or drag previews or use their arrow buttons to rearrange them; page breaks keep the reordered pages together. The sheet stays full-sized on narrow or zoomed-in screens, where you can scroll horizontally to reach the sidebar. Backspace on an empty line after a page break removes the break. If a single line spans pages, split it before rearranging. Imports and page moves can be undone. To move a sheet saved on the former worship hostname, export it there and import it on the new hostname; the old hostname may need to be restored temporarily to do this. Starting a new sheet replaces the saved sheet. Print or save a PDF before clearing browser data. Use only lyrics you have permission to reproduce.
+- Click or paste lyrics on the sheet and click above a word to add a chord. Click unused space in the upper or lower half of a row to edit its last chord or lyric; clicking anywhere on an empty row starts a lyric. Hyphens split words into chord blocks.
+- Left/right arrows, including Ctrl or Cmd+arrow, move between lyric or chord boxes at their edges; up/down navigate lines. Enter on a word's chord moves the word and chord to a new line.
+- Tab moves chord text after the cursor forward, shifting occupied blocks as needed. Shift+Tab before a chord moves it backward only when the previous block is empty. Backspace at the start moves and combines a chord with the previous one, or navigates back if empty; Ctrl or Cmd+Backspace in an empty chord block jumps to the previous non-empty chord.
+- Drag across lyrics or from the paper margin to copy lyrics with chords; drag across chords to copy them separately. Pasting into ordinary text gives plain lyrics or a single line of chords. In the editor, pasted chords keep their lines, skip section headings, and add blocks after short lyric lines.
+- A title with its key in parentheses, intro lines, and section headings at a column's top use only their needed space. A single-word colon label takes precedence over title detection, is bold, and has no chord slots. `Intro:` immediately after a title stays compact with extra space above it. The in-app formatting and page tips cover chords, sections, and page breaks.
+- Sheets use 11-point Georgia in two columns on US Letter pages. Scroll through them, print, or save a PDF through the browser. The interface uses Inter from Google Fonts with a system-font fallback.
 
-Single-word colon labels take precedence over title detection. The interface loads Inter from Google Fonts, with a system-font fallback when unavailable.
+### Pages and saving
 
-On this server, the HTTP virtual host is installed in `/etc/nginx/sites-available/beeffilet` (enabled through `/etc/nginx/sites-enabled/beeffilet`). Point the `chords` DNS record at the server and configure HTTPS. For another server, add an Nginx virtual host:
+- Sheets are saved in browser local storage on the current device and hostname, not on the server or across devices. A new sheet replaces the saved sheet; print or save a PDF before clearing browser data.
+- Export downloads an editable, versioned `.chords.json` file named from the title(s), stopping at each recognized key, e.g. `Desert Song (G)`. Import also accepts older `.worship.json` exports with lyrics and chord placements. With existing content, choose Replace, Add to sheet on a new page, or Cancel. Imports can be undone.
+- Click a page preview on the right to jump to it, or drag previews or use their arrows to rearrange pages. Reordering adds page breaks to keep pages together and can be undone. Split a line that spans pages before rearranging. Backspace on an empty line after a page break removes it.
+- The sheet remains full-sized on narrow or zoomed-in screens; scroll horizontally to reach the sidebar. To move a sheet from the former worship hostname, export it there and import it on the new hostname; the old hostname may need to be restored temporarily.
+- Use only lyrics you have permission to reproduce.
+
+### Hosting
+
+On this server, the HTTP virtual host is `/etc/nginx/sites-available/beeffilet`, enabled through `/etc/nginx/sites-enabled/beeffilet`. Point the `chords` DNS record at the server and configure HTTPS. For another server, add:
 
 ```nginx
 server {
@@ -31,28 +51,32 @@ server {
 }
 ```
 
-Test and reload Nginx as described below. This virtual host currently serves HTTP at the origin; configure an origin certificate and HTTPS before using Cloudflare Full (strict) or direct HTTPS. The HTML file is served directly, so edits do not require a Node restart.
+Test and reload Nginx as described below. This host currently serves HTTP at the origin; configure an origin certificate and HTTPS before using Cloudflare Full (strict) or direct HTTPS. Nginx serves the HTML directly, so edits do not require a Node restart.
 
 ## Root domain: beeffilet.com
 
-- `index.html` is the deliberately minimal “Hi” page.
-- `tetris.html` is the standalone, mobile-only sTetris game with guideline gravity (capped at 20G), guideline scoring including combos, back-to-back clears, perfect clears, and drop points, grid-stepped falling and quick snap animation, a brief hard-drop trail, calibrated side-to-side dragging, and slow downward drags that act as a soft-drop hold. Tapping the style toggle seven times within eight seconds unlocks a debug action to clear the board for 800 × current-level points and four lines; using it makes the run ineligible for the leaderboard. Pixel is the default style; a player's selected style is saved in browser local storage. Scores can be submitted to the shared leaderboard through the Devo Node service API.
-- Pieces lock after 500 ms on the stack; successful grounded moves and rotations reset that timer up to 15 times per piece, and the timer pauses while airborne. New and held pieces appear immediately with a 150 ms touch-friendly grace period before gravity starts; movement and rotation remain available, and soft or hard drop bypasses the wait. Resuming a paused game shows a 3-2-1 countdown over the board and resets the lock timer; switching away from the page pauses the game. The latest clear and its awarded points, including combo and back-to-back bonuses, appear below the board.
-- Run the Tetris timing regression tests with `node --test tests/tetris-timing.test.js`.
-- `robots.txt` asks all well-behaved crawlers not to crawl the site.
-- Nginx serves these files directly from this directory. The nginx virtual-host configuration itself lives at `/etc/nginx/sites-available/beeffilet`.
-- The root-domain response also sends `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`.
+Edit `index.html` for the deliberately minimal “Hi” page or `robots.txt` for crawler instructions. Nginx serves them directly from this directory; no Node restart is needed. The virtual-host configuration is `/etc/nginx/sites-available/beeffilet`.
 
-To change the root page, edit `index.html`; to change crawler instructions, edit `robots.txt`. Nginx serves the files directly, so no Node restart is needed. After changing nginx config, test and reload:
+`robots.txt` asks well-behaved crawlers not to crawl the site. The root response also sends `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`. These are requests to compliant crawlers, not access control; the page remains publicly accessible.
+
+After changing Nginx configuration, test and reload:
 
 ```sh
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Robots directives are requests to compliant crawlers, not access control. The public page remains accessible to anyone.
+## sTetris
 
-To serve the game at `tetris.beeffilet.com`, point its DNS record at this server and add a separate Nginx virtual host. The game file is in the existing web root, so no Node restart is needed:
+`tetris.html` is a standalone, mobile-only game. It uses guideline gravity (capped at 20G) and scoring (combos, back-to-back clears, perfect clears, and drop points), grid-stepped falling, a quick snap animation, and a brief hard-drop trail. Side-to-side dragging is calibrated; a slow downward drag holds soft drop.
+
+- Pieces lock after 500 ms on the stack. Successful grounded moves and rotations reset the timer up to 15 times per piece; it pauses while airborne.
+- New and held pieces appear immediately with a 150 ms touch-friendly grace period before gravity. Movement and rotation remain available; soft or hard drop bypasses the wait.
+- Resuming shows a 3-2-1 countdown over the board and resets the lock timer. Switching away pauses the game. The latest clear and its points, including combo and back-to-back bonuses, appear below the board.
+- Pixel is the default style; the selected style is saved in browser local storage. Tapping the style toggle seven times within eight seconds unlocks a debug action that clears the board for 800 × current-level points and four lines, making that run leaderboard-ineligible.
+- Scores can be submitted to the shared leaderboard through the Devo Node service API. Run timing regression tests with `node --test tests/tetris-timing.test.js`.
+
+To host `tetris.beeffilet.com`, point its DNS record at the server and add a separate Nginx virtual host. The game file is already in the web root, so no Node restart is needed:
 
 ```nginx
 server {
@@ -80,24 +104,18 @@ server {
 }
 ```
 
-The API location must be checked before the static-file locations so `/api/tetris/leaderboard` reaches the Node service. Test and reload Nginx after adding the block. Configure HTTPS for the new host using the same approach as the other subdomains.
+The API location must be checked before the static-file locations so `/api/tetris/leaderboard` reaches the Node service. Test and reload Nginx after adding the block, then configure HTTPS as for the other subdomains.
 
 ## Devo app
 
-A small Node.js website that fetches Alistair Begg's daily devotional and its Further Reading passage from Truth For Life and presents them in a simple, readable layout with a collapsible Further Reading section.
+The Node.js app fetches Alistair Begg's daily devotional and Further Reading passage from [Truth For Life](https://www.truthforlife.org/daily/?tab=alistair_begg_devotional), with a collapsible Further Reading section. `server.js` parses the source, caches each day's devotional in memory for 30 minutes, renders the HTML, and serves the Tetris leaderboard API. If the source markup changes or requests are blocked, the parser may need updating.
 
-## How it works
+- Page markup and CSS are in `server.js`; there is no separate HTML file, build step, or package install. Node.js 18+ is required for its built-in `fetch`. The default port is `3000`; set `PORT` to change it.
+- All submitted scores are saved in `tetris-leaderboard.json`, created after the first successful submission. The leaderboard shows each player's best score for the top 10 players, matching names case-insensitively, including Anonymous.
+- `icon2.png` is Devo's browser and iOS home-screen icon. `tetris-icon.png` is the Tetris S-block browser and home-screen icon.
+- Text size and the Paper, High Contrast White, and High Contrast Black appearances are saved in the visitor's browser, not on the server.
 
-- `server.js` fetches and parses the source page, caches each day's devotional in memory for 30 minutes, returns the rendered HTML, and serves the Tetris leaderboard API.
-- All submitted Tetris scores are stored in `tetris-leaderboard.json` in this project folder; the file is created automatically after the first successful score submission. The leaderboard displays the top 10 players by their best score, matching names case-insensitively (including all submissions named Anonymous). After editing `server.js`, restart the Node process using the same method you used to start it.
-- `icon2.png` is Devo's browser and iOS home-screen icon; `tetris-icon.png` is the Tetris S-block home-screen and browser icon.
-- There is no build step, package install, or separate HTML file. The page markup and CSS are in `server.js`.
-- Node.js 18 or newer is required (the app uses the built-in `fetch` API).
-- The app listens on port `3000` by default. Set `PORT` to change it.
-
-The source page is `https://www.truthforlife.org/daily/?tab=alistair_begg_devotional`. If Truth For Life changes its page markup or blocks requests, the devotional parser may need an update.
-
-## Run it manually
+### Run manually
 
 From the project directory:
 
@@ -106,7 +124,7 @@ cd /home/ubuntu/beeffiletserver
 node server.js
 ```
 
-Open `http://localhost:3000` on the server, or browse to the configured domain through nginx. Stop the foreground process with `Ctrl+C`.
+Open `http://localhost:3000` on the server or the configured domain through Nginx. Stop the foreground process with `Ctrl+C`.
 
 To run it in the background temporarily:
 
@@ -115,9 +133,9 @@ cd /home/ubuntu/beeffiletserver
 nohup node server.js > /tmp/devo.log 2>&1 &
 ```
 
-This is suitable for a quick test, not as a reliable production process: it will not automatically restart after a reboot or crash. Use the systemd setup below for that.
+This is for a quick test, not production: it will not restart after a reboot or crash. Use systemd for that.
 
-## Keep it running with systemd
+### Run with systemd
 
 Create `/etc/systemd/system/beeffilet.service`:
 
@@ -140,7 +158,7 @@ Environment=NODE_ENV=production
 WantedBy=multi-user.target
 ```
 
-Check the location of Node with `command -v node`. If it is not `/usr/bin/node`, use the reported absolute path in `ExecStart`.
+Check Node's location with `command -v node`. If it is not `/usr/bin/node`, use the reported absolute path in `ExecStart`.
 
 Install and start the service:
 
@@ -150,7 +168,7 @@ sudo systemctl enable --now beeffilet
 sudo systemctl status beeffilet
 ```
 
-After editing `server.js` or replacing the icon, restart and check it:
+After editing `server.js` or replacing the icon, restart and check the service:
 
 ```sh
 sudo systemctl restart beeffilet
@@ -164,17 +182,17 @@ Follow live logs with:
 sudo journalctl -u beeffilet -f
 ```
 
-If the manually started app is already using port 3000, stop that process before starting the service. Check the listener with:
+If a manually started app is already using port 3000, find the listener:
 
 ```sh
 sudo ss -ltnp | grep ':3000'
 ```
 
-Stop only the specific PID shown by that command, then start the service. Do not run a second copy on the same port.
+Stop only the specific PID shown before starting the service; do not run two copies on the same port.
 
-## Nginx
+### Nginx
 
-Nginx should proxy the `devo.beeffilet.com` virtual host to the app on `127.0.0.1:3000`. Add a separate `server` block to the existing site file (on this server, `/etc/nginx/sites-available/beeffilet`); do not replace the other virtual hosts in that file:
+Proxy the `devo.beeffilet.com` virtual host to `127.0.0.1:3000`. Add a separate `server` block to `/etc/nginx/sites-available/beeffilet` on this server; do not replace the other virtual hosts:
 
 ```nginx
 server {
@@ -191,43 +209,29 @@ server {
 }
 ```
 
-Test before reloading nginx:
-
-```sh
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-Check the virtual host locally, without depending on DNS:
+Test and reload Nginx as above, then check the virtual host locally without DNS:
 
 ```sh
 curl -i -H 'Host: devo.beeffilet.com' http://127.0.0.1/
 curl -I -H 'Host: devo.beeffilet.com' http://127.0.0.1/icon2.png
 ```
 
-## DNS and HTTPS
+### DNS and HTTPS
 
-In the DNS provider for `beeffilet.com`, create an `A` record named `devo` pointing to this server's current public IPv4 address. The address can change, so confirm it rather than relying on an old value. If using Cloudflare proxying, keep the setting consistent with the other working subdomains.
-
-Check that DNS resolves:
+Create a `devo` A record pointing to the server's current public IPv4 address; confirm the address because it can change. If using Cloudflare proxying, match the other working subdomains. Check DNS:
 
 ```sh
 dig +short devo.beeffilet.com
 ```
 
-Once DNS points to this server and HTTP works, enable HTTPS. If this server uses Certbot, a typical command is:
+Once DNS points to the server and HTTP works, enable HTTPS. If using Certbot:
 
 ```sh
 sudo certbot --nginx -d devo.beeffilet.com
 ```
 
-Follow Certbot's prompts and verify the HTTPS site afterward. When Cloudflare proxying is enabled, configure its SSL/TLS mode to match the certificate and origin setup.
+Follow the prompts and verify HTTPS. If Cloudflare proxying is enabled, match its SSL/TLS mode to the certificate and origin setup.
 
-## Updating the site
+### Updates
 
-1. Edit `server.js` or `tetris.html`, or replace `icon2.png` (Devo) or `tetris-icon.png` (Tetris).
-2. Restart the app (`sudo systemctl restart beeffilet` if using systemd) only when changing `server.js`.
-3. Check the service logs if the Devo page does not load.
-4. If you changed nginx configuration, run `sudo nginx -t` before reloading nginx.
-
-The display options (text size, plus Paper, High Contrast White, and High Contrast Black appearance) are saved in the visitor's browser, not on the server.
+Edit `server.js` or `tetris.html`, or replace `icon2.png` (Devo) or `tetris-icon.png` (Tetris). Restart the Node app using the same method used to start it when changing `server.js` (`sudo systemctl restart beeffilet` under systemd); the directly served Tetris file needs no restart. Check service logs if Devo does not load. If Nginx configuration changes, run `sudo nginx -t` before reloading.
