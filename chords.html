@@ -82,11 +82,15 @@
     @media (min-width: 1160px) {
       .page-sidebar { position: fixed; top: 50%; right: max(16px, calc((100vw - 1160px) / 2 + 16px)); margin-left: 0; transform: translateY(-50%); }
     }
-    .import-dialog { max-width: min(440px, calc(100% - 32px)); padding: 22px; border: 1px solid #deded9; border-radius: 10px; color: #1c1c1a; font: 14px/1.5 Inter, system-ui, sans-serif; }
-    .import-dialog::backdrop { background: #0006; }
-    .import-dialog h2 { margin: 0 0 8px; font-size: 1.1rem; }
-    .import-dialog p { margin: 0 0 16px; }
-    .import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .import-dialog { width: min(400px, calc(100% - 32px)); padding: 24px; border: 0; border-radius: 14px; color: #1c1c1a; box-shadow: 0 12px 40px #0003; font: 14px/1.5 Inter, system-ui, sans-serif; }
+    .import-dialog::backdrop { background: #0000004d; backdrop-filter: blur(2px); }
+    .import-dialog h2 { margin: 0 0 6px; font-size: 1.05rem; letter-spacing: -.01em; }
+    .import-dialog p { margin: 0 0 22px; color: #666660; }
+    .import-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; }
+    .import-actions button { padding: .4em .85em; border-color: transparent; border-radius: 999px; background: transparent; color: #666660; font-size: .85rem; font-weight: 500; }
+    .import-actions button:hover { border-color: transparent; background: #0000000d; color: #1c1c1a; }
+    .import-actions button.primary { background: #1c1c1a; color: white; font-weight: 600; }
+    .import-actions button.primary:hover { background: #3a3a37; color: white; }
     .paper-page { width: 8.5in; height: 11in; padding: .6in; background: white; outline: 1px solid #deded9; box-shadow: 0 8px 26px #0000000c; }
     .page-slot { position: relative; width: 7.3in; height: 9.7in; }
     .lyrics-wrap { position: relative; width: calc(7.3in + .3in); height: 9.7in; margin: 0 -.15in; padding: 0 .15in; overflow: hidden; }
@@ -247,9 +251,9 @@
         <h2 id="importChoiceTitle">Import sheet</h2>
         <p>Replace your current sheet, or add the imported sheet on a new page?</p>
         <div class="import-actions">
-          <button type="submit" value="replace">Replace</button>
-          <button type="submit" value="append">Add to sheet</button>
           <button type="submit" value="cancel">Cancel</button>
+          <button type="submit" value="replace">Replace</button>
+          <button type="submit" value="append" class="primary">Add to sheet</button>
         </div>
       </form>
     </dialog>
