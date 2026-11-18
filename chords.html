@@ -56,8 +56,9 @@
     .paper-page { width: 8.5in; height: 11in; padding: .6in; background: white; outline: 1px solid #deded9; box-shadow: 0 8px 26px #0000000c; zoom: var(--page-scale, 1); }
     .page-slot { position: relative; width: 7.3in; height: 9.7in; }
     .lyrics-wrap { position: relative; width: calc(7.3in + .3in); height: 9.7in; margin: 0 -.15in; padding: 0 .15in; overflow: hidden; }
-    .page-snapshot { cursor: text; }
-    .lyrics { width: 7.3in; column-count: 2; column-gap: .4in; column-fill: auto; height: 9.7in; }
+    .page-snapshot { cursor: text; content-visibility: auto; }
+    /* Column-start recalculation must not shift the viewport during edits. */
+    .lyrics { width: 7.3in; column-count: 2; column-gap: .4in; column-fill: auto; height: 9.7in; overflow-anchor: none; }
     .lyric-line { position: relative; isolation: isolate; white-space: pre-wrap; break-inside: avoid; min-height: 2.6em; }
     .lyric-line.key-line, .lyric-line.column-start-cue, .lyric-line.intro { min-height: 1.3em; }
     .lyric-line.column-start-cue-break { break-before: column; }
@@ -162,7 +163,7 @@
   <main>
     <header class="app-header">
       <div class="brand">
-        <h1>Chord Sheet Generator <span>v1.0</span></h1>
+        <h1>Chord Sheet Generator <span>v1.5</span></h1>
       </div>
       <div class="actions" aria-label="Sheet actions">
         <button id="newSheet" type="button">New sheet</button>
@@ -180,7 +181,7 @@
         <li><strong>Title and key:</strong> Add the key in parentheses, such as <code>Song title (G)</code>, for a compact bold italic title.</li>
         <li><strong>Sections:</strong> Lines starting with Verse, Chorus, Bridge, or <code>(</code> are bold and have no chord slots.</li>
         <li><strong>Labels and instrumental lines:</strong> Start a line with a word and colon, such as <code>Instrumental:</code>, for a line without chord slots. The label is bold; <code>Intro:</code> immediately after a title stays compact. Time signatures like <code>4/4</code> display vertically.</li>
-        <li><strong>Pages and saving:</strong> Shift+Enter starts a new page. Click a preview on the right to jump to a page; drag previews or use their arrows to rearrange pages. Use Print / PDF to print. Your sheet saves on this device; Export and Import share editable <code>.chords.json</code> files. Import can replace the sheet or add it on a new page.</li>
+        <li><strong>Pages and saving:</strong> Shift+Enter starts a new page; Backspace on an empty line after a page break removes it. Click a preview on the right to jump to a page; drag previews or use their arrows to rearrange pages. Use Print / PDF to print. Your sheet saves on this device; Export and Import share editable <code>.chords.json</code> files. Import can replace the sheet or add it on a new page.</li>
       </ul>
     </details>
     <article class="sheet" aria-label="Song sheet">
@@ -369,8 +370,45 @@
         setFieldSelection(input, caret, caret);
       }
 
-      function snapshotFor(slot, index, step) {
-        const snapshot = $("liveWrap").cloneNode(true);
+      function snapshotRows() {
+        const geometry = columnGeometry();
+        const rows = [];
+        for (const row of lyrics.children) {
+          const rects = row.getClientRects();
+          // Fragmented rows need the full content to reproduce column breaks.
+          if (rects.length > 1) return null;
+          const rect = rects[0];
+          rows.push({
+            row,
+            page: rect ? Math.floor(Math.max(0, Math.round((rect.left - geometry.left) / geometry.scale / geometry.colStep)) / 2) : -1,
+            height: rect ? rect.height / geometry.scale : 0
+          });
+        }
+        return rows;
+      }
+
+      function makeSnapshot(index, step, rows) {
+        const live = $("liveWrap");
+        let snapshot;
+        if (!rows) {
+          snapshot = live.cloneNode(true);
+        } else {
+          snapshot = live.cloneNode(false);
+          const content = lyrics.cloneNode(false);
+          for (const { row, page, height } of rows) {
+            const copyContent = page === index || !row.classList.contains("lyric-line") ||
+              row.classList.contains("page-break");
+            const copy = row.cloneNode(copyContent);
+            if (!copyContent && !row.hidden) {
+              // Preserve the row's space without duplicating its off-page controls.
+              copy.classList.add("snapshot-placeholder");
+              copy.style.height = `${height}px`;
+              copy.style.minHeight = "0";
+            }
+            content.append(copy);
+          }
+          snapshot.append(content);
+        }
         snapshot.removeAttribute("id");
         snapshot.classList.add("page-snapshot");
         snapshot.setAttribute("aria-hidden", "true");
@@ -381,6 +419,11 @@
           if (element.hasAttribute("contenteditable")) element.contentEditable = "false";
         });
         applyPageOffset(snapshot, index, step);
+        return snapshot;
+      }
+
+      function snapshotFor(slot, index, step, rows = snapshotRows()) {
+        const snapshot = makeSnapshot(index, step, rows);
         snapshot.addEventListener("pointerdown", (event) => {
           const target = event.target.closest(".chord-input, .lyric-input");
           if (!target) return;
@@ -458,15 +501,16 @@
         applyPageOffset(live, activePage, metrics.step);
         navigation.forEach((entry, index) => { entry.input.dataset.nav = String(index); });
         lyricInputs.forEach((entry, index) => { entry.input.dataset.lyric = String(index); });
+        const rows = snapshotRows();
         for (let index = 0; index < stack.children.length; index++) {
           const page = stack.children[index];
-          if (index !== activePage) snapshotFor(page.querySelector(".page-slot"), index, metrics.step);
+          if (index !== activePage) snapshotFor(page.querySelector(".page-slot"), index, metrics.step, rows);
         }
         updateFallbackHover();
-        updatePageList();
+        updatePageList(rows, metrics.step);
       }
 
-      function updatePageList() {
+      function updatePageList(rows, step) {
         const sidebar = $("pageSidebar");
         const list = $("pageList"), stack = $("paperStack");
         const current = document.activeElement?.closest?.(".page-card");
@@ -489,7 +533,15 @@
           const preview = document.createElement("div");
           preview.className = "page-thumbnail";
           preview.setAttribute("aria-hidden", "true");
-          const copy = page.cloneNode(true);
+          let copy;
+          if (index === activePage) {
+            copy = page.cloneNode(false);
+            const slot = page.querySelector(".page-slot").cloneNode(false);
+            slot.append(makeSnapshot(index, step, rows));
+            copy.append(slot);
+          } else {
+            copy = page.cloneNode(true);
+          }
           copy.setAttribute("inert", "");
           copy.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
           preview.append(copy);
@@ -536,14 +588,20 @@
         }
       }
 
-      function positionSidebar() {
+      function positionSidebar(contentChanged = true) {
         const sidebar = $("pageSidebar");
+        if (window.innerWidth >= 1160) {
+          if (sidebar.style.maxHeight) sidebar.style.maxHeight = "";
+          return;
+        }
         const layoutTop = document.querySelector(".sheet-layout").getBoundingClientRect().top;
-        sidebar.style.maxHeight = window.innerWidth < 1160 ?
-          `${Math.max(0, window.innerHeight - Math.max(16, layoutTop) - 16)}px` : "";
+        const maxHeight = `${Math.max(0, window.innerHeight - Math.max(16, layoutTop) - 16)}px`;
+        const heightChanged = sidebar.style.maxHeight !== maxHeight;
+        if (heightChanged) sidebar.style.maxHeight = maxHeight;
+        if (!heightChanged && !contentChanged) return;
         sidebar.style.setProperty("--sidebar-height", `${sidebar.offsetHeight}px`);
       }
-      window.addEventListener("scroll", positionSidebar, { passive: true });
+      window.addEventListener("scroll", () => positionSidebar(false), { passive: true });
 
       function movePage(from, to, action) {
         $("pageError").hidden = true;
@@ -638,7 +696,7 @@
         const target = document.elementFromPoint(x, y);
         const wrap = target?.closest(".lyrics-wrap");
         if (!wrap || target.closest(".lyric-line")) return;
-        fallbackHoverRow = [...wrap.querySelectorAll(".lyric-line:not(.page-break):not([hidden])")].find((row) =>
+        fallbackHoverRow = [...wrap.querySelectorAll(".lyric-line:not(.page-break):not(.snapshot-placeholder):not([hidden])")].find((row) =>
           [...row.getClientRects()].some((rect) =>
             x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom)) || null;
         fallbackHoverRow?.classList.add("hover-row");
@@ -1308,7 +1366,13 @@
         entry.pageBreak = () => edit(lineEnd, lineEnd, "\n\f\n", lineEnd + 3, true);
         entry.backspace = (event) => {
           if (entry.input.value) return;
-          if (virtual) { moveLyric(entry, -1, event); return; }
+          if (virtual) {
+            if (sheet.text[lineEnd - 1] === "\f" && (lineEnd === 1 || sheet.text[lineEnd - 2] === "\n")) {
+              event.preventDefault();
+              edit(lineEnd - 1, lineEnd, "", lineEnd - 1);
+            } else moveLyric(entry, -1, event);
+            return;
+          }
           if (line.trim()) { moveLyric(entry, -1, event); return; }
           if (lineStart === 0) return;
           event.preventDefault();
@@ -1842,9 +1906,35 @@
           sheet.pauses = {};
           sheet.extras = {};
         }
-        if (!replacement && (from === 0 || text[from - 1] === "\n") && (to === text.length || text[to] === "\n")) {
+        const previousBreak = text.lastIndexOf("\f\n", from - 1);
+        const hasPreviousBreak = previousBreak >= 0 && previousBreak + 2 <= from &&
+          (previousBreak === 0 || text[previousBreak - 1] === "\n");
+        const nextBreakPattern = /\n\f(?=\n|$)/g;
+        nextBreakPattern.lastIndex = Math.max(0, to - 1);
+        const nextMatch = nextBreakPattern.exec(text);
+        const nextBreak = nextMatch ? nextMatch.index + 1 : -1;
+        const pageStart = hasPreviousBreak ? previousBreak + 2 : 0;
+        const pageEnd = nextBreak >= 0 ? nextBreak : text.length;
+        const maps = [sheet.chords, sheet.pauses, sheet.extras];
+        const inPage = (at) => at >= pageStart && (nextBreak >= 0 ? at < pageEnd : at <= pageEnd);
+        const clearsPage = !replacement && (hasPreviousBreak || nextBreak >= 0) &&
+          /^[^\S\f]*$/.test(text.slice(pageStart, from)) &&
+          /^[^\S\f]*$/.test(text.slice(to, pageEnd)) &&
+          maps.every((map) => Object.keys(map).every((position) => {
+            const at = Number(position);
+            return !inPage(at) || (at >= from && at <= to);
+          }));
+        if (clearsPage) {
+          for (const map of maps) {
+            for (const position of Object.keys(map)) {
+              if (inPage(Number(position))) delete map[position];
+            }
+          }
+          from = hasPreviousBreak ? previousBreak : 0;
+          to = hasPreviousBreak ? pageEnd : nextBreak + (text[nextBreak + 1] === "\n" ? 2 : 1);
+        } else if (!replacement && (from === 0 || text[from - 1] === "\n") && (to === text.length || text[to] === "\n")) {
           if (to < text.length) to++;
-          else if (from > 0) from--;
+          else if (from > 0 && !breakBefore(from)) from--;
         }
         delete sheet.chords[from];
         delete sheet.pauses[to];
