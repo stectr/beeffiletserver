@@ -20,7 +20,7 @@ This repository contains four sites:
 - Tab moves chord text after the cursor forward, shifting occupied blocks as needed. Shift+Tab before a chord moves it backward only when the previous block is empty. Backspace at the start moves and combines a chord with the previous one, or navigates back if empty; Ctrl or Cmd+Backspace in an empty chord block jumps to the previous non-empty chord.
 - Drag across lyrics or from the paper margin to copy lyrics with chords; drag across chords to copy them separately. Pasting into ordinary text gives plain lyrics or a single line of chords. In the editor, pasted chords keep their lines, skip section headings, and add blocks after short lyric lines.
 - A title with its key in parentheses, intro lines, and section headings at a column's top use only their needed space. A single-word colon label takes precedence over title detection, is bold, and has no chord slots. `Intro:` immediately after a title stays compact with extra space above it. The in-app formatting and page tips cover chords, sections, and page breaks.
-- Sheets use 11-point Georgia in two columns on US Letter pages. Scroll through them, print, or save a PDF through the browser with the Print button or Ctrl/Cmd+P. The interface uses Inter from Google Fonts with a system-font fallback.
+- Sheets use 11-point Georgia in two columns on US Letter pages with half-inch margins. Scroll through them, print, or save a PDF through the browser with the Print button or Ctrl/Cmd+P. For matching output, select Letter, 100% scale, and half-inch margins in the print dialog if the browser does not apply them automatically. The interface uses Inter from Google Fonts with a system-font fallback.
 
 ### Pages and saving
 
@@ -30,6 +30,8 @@ This repository contains four sites:
 - Click a page preview on the right to jump to it, or drag previews or use their arrows to rearrange pages. Reordering adds page breaks to keep pages together and can be undone. Split a line that spans pages before rearranging. Backspace on an empty line after a page break removes it.
 - The sheet remains full-sized on narrow or zoomed-in screens; scroll horizontally to reach the sidebar. To move a sheet from the former worship hostname, export it there and import it on the new hostname; the old hostname may need to be restored temporarily.
 - Use only lyrics you have permission to reproduce.
+
+Browser regression tests run with `node --test tests/chords.browser.test.js` when Playwright and its WebKit browser are installed; otherwise they are skipped. Set `CHORDS_BROWSER=chromium` to test Chromium instead.
 
 ### Hosting
 
@@ -113,7 +115,7 @@ The API location must be checked before the static-file locations so `/api/tetri
 
 ## Devo app
 
-The Node.js app fetches Alistair Begg's daily devotional and Further Reading passage from [Truth For Life](https://www.truthforlife.org/daily/?tab=alistair_begg_devotional), with a collapsible Further Reading section. `server.js` parses the source, caches each day's devotional in memory for 30 minutes, renders the HTML, and serves the Tetris leaderboard API. If the source markup changes or requests are blocked, the parser may need updating.
+The Node.js app fetches Alistair Begg's daily devotional and Further Reading passage from [Truth For Life](https://www.truthforlife.org/daily/?tab=alistair_begg_devotional), preserving paragraph and scripture-line formatting; Further Reading is collapsible and closed by default. `server.js` parses the source, caches each day's devotional in memory for 30 minutes, renders the HTML, and serves the Tetris leaderboard API. If the source markup changes or requests are blocked, the parser may need updating. Run the devotional parser tests with `node --test tests/devo.test.js`.
 
 - Page markup and CSS are in `server.js`; there is no separate HTML file, build step, or package install. Node.js 18+ is required for its built-in `fetch`. The default port is `3000`; set `PORT` to change it.
 - All submitted scores are saved in `tetris-leaderboard.json`, created after the first successful submission. The leaderboard shows each player's best score for the top 10 players, matching names case-insensitively, including Anonymous.

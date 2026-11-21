@@ -49,7 +49,7 @@
     .app-header button { padding: .4em .75em; border-color: transparent; border-radius: 999px; background: transparent; color: #666660; font-size: .85rem; font-weight: 500; }
     .app-header button:hover { border-color: transparent; background: #0000000d; color: #1c1c1a; }
     .app-header button#printSheet { color: #1c1c1a; font-weight: 600; }
-    .sheet, .print-pages, .print-staging { font: 11pt/1.3 Georgia, "Times New Roman", serif; }
+    .sheet, .print-pages { font: 11pt/1.3 Georgia, "Times New Roman", serif; }
     .sheet-meta { width: min(100%, 816px); margin: 0 auto 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .save-status { flex: 1; min-width: 0; margin: 0; color: #666660; text-align: left; font: .84rem/1.45 Inter, system-ui, sans-serif; }
     .save-status.error { color: #8a1f1f; }
@@ -71,14 +71,15 @@
     .page-jump { display: block; width: fit-content; margin: auto; padding: 0; border: 0; border-radius: 0; background: white; box-shadow: 0 1px 5px #0002; }
     .page-jump:hover { background: white; box-shadow: 0 2px 8px #0003; }
     .page-thumbnail { width: 110px; height: 143px; overflow: hidden; pointer-events: none; }
-    .page-thumbnail .paper-page { zoom: .132; box-shadow: none; outline: 0; }
+    .page-thumbnail .paper-page { transform: scale(.132); transform-origin: top left; box-shadow: none; outline: 0; }
+    .page-thumbnail .page-snapshot { content-visibility: visible; }
     .page-thumbnail .virtual-line { display: none; }
     .page-thumbnail .lyric-line.page-break { visibility: hidden; }
     .page-move { display: flex; justify-content: center; gap: 4px; margin-top: 3px; }
     .page-move button { min-width: 28px; padding: 2px; border: 0; background: transparent; color: #777; }
     .page-move button:hover { color: #1c1c1a; background: #e7e7e4; }
     .page-move button:disabled { visibility: hidden; }
-    .paper-stack { grid-column: 2; grid-row: 1; display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 1.5em; user-select: none; }
+    .paper-stack { grid-column: 2; grid-row: 1; display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 1.5em; -webkit-user-select: none; user-select: none; }
     @media (min-width: 1160px) {
       .page-sidebar { position: fixed; top: 50%; right: max(16px, calc((100vw - 1160px) / 2 + 16px)); margin-left: 0; transform: translateY(-50%); }
     }
@@ -91,12 +92,12 @@
     .import-actions button:hover { border-color: transparent; background: #0000000d; color: #1c1c1a; }
     .import-actions button.primary { background: #1c1c1a; color: white; font-weight: 600; }
     .import-actions button.primary:hover { background: #3a3a37; color: white; }
-    .paper-page { width: 8.5in; height: 11in; padding: .6in; background: white; outline: 1px solid #deded9; box-shadow: 0 8px 26px #0000000c; }
-    .page-slot { position: relative; width: 7.3in; height: 9.7in; }
-    .lyrics-wrap { position: relative; width: calc(7.3in + .3in); height: 9.7in; margin: 0 -.15in; padding: 0 .15in; overflow: hidden; }
+    .paper-page { width: 8.5in; height: 11in; padding: .5in; background: white; outline: 1px solid #deded9; box-shadow: 0 8px 26px #0000000c; }
+    .page-slot { position: relative; width: 7.5in; height: 10in; }
+    .lyrics-wrap { position: relative; width: calc(7.5in + .3in); height: 10in; margin: 0 -.15in; padding: 0 .15in; overflow: hidden; }
     .page-snapshot { cursor: text; content-visibility: auto; }
     /* Column-start recalculation must not shift the viewport during edits. */
-    .lyrics { width: 7.3in; column-count: 2; column-gap: .4in; column-fill: auto; height: 9.7in; overflow-anchor: none; }
+    .lyrics { width: 7.5in; column-count: 2; column-gap: .4in; column-fill: auto; height: 10in; overflow-anchor: none; }
     .lyric-line { position: relative; isolation: isolate; white-space: pre-wrap; break-inside: avoid; min-height: 2.6em; }
     .lyric-line.key-line, .lyric-line.column-start-cue, .lyric-line.intro { min-height: 1.3em; }
     .lyric-line.column-start-cue-break { break-before: column; }
@@ -132,7 +133,8 @@
     .lyric-line:not(.blank) .tail-slot:not(:focus-within) { width: 0; pointer-events: none; }
     .lyric-line.section-cue, .lyric-line.intro, .lyric-line.label-line { display: flow-root; }
     .lyric-line.page-break { min-height: 0; height: 1.3em; break-after: column; border-bottom: 1px dashed #c9c9c3; color: #8a8a84; font: 8pt sans-serif; line-height: 1.3em; user-select: none; }
-    .page-break-extra { height: 0; break-after: column; }
+    /* WebKit ignores a column break on an empty, zero-height block. */
+    .page-break-extra { height: 1px; break-after: column; }
     .key-word, .key-line { font-weight: bold; font-style: italic; }
     .key-line .lyric-input,
     .key-word .lyric-input { font-weight: bold; font-style: italic; }
@@ -143,7 +145,7 @@
     .line-size { display: block; visibility: hidden; padding: 0 .1em; min-height: 1.3em; line-height: 1.3; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
     textarea.lyric-input, div.lyric-input { resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; display: block; }
     .line-slot .lyric-input { left: .1em; width: calc(100% - .2em); }
-    .lyric-input, .chord-input { user-select: text; }
+    .lyric-input, .chord-input { -webkit-user-select: text; user-select: text; }
     .line-slot.has-formatted-display .line-size { display: none; }
     .formatted-display { display: block; padding: 0 .1em; min-height: 1.3em; line-height: 1.3; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
     .time-signature { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .7em; line-height: .8; }
@@ -162,17 +164,17 @@
     .extra-chord .chord-slot { min-width: .8em; }
     .pause:focus-within .chord-slot { min-width: .7em; }
     .error { font-weight: bold; }
-    .print-pages { display: none; }
-    .print-staging { position: absolute; left: -10000px; top: 0; width: 7.3in; visibility: hidden; }
+    .print-pages { position: absolute; top: 0; left: -10000px; width: 7.5in; }
+    .print-page { break-after: page; }
+    .print-page:last-child { break-after: auto; }
+    .print-page .lyrics-wrap { width: 7.5in; margin: 0; padding: 0; overflow: hidden; }
+    .print-row-clip { position: absolute; overflow: hidden; }
+    .print-row-clip > .lyric-line { position: absolute; width: calc(100% - 4px); left: 2px; }
     @media print {
-      @page { size: letter; margin: .6in; }
+      @page { size: letter; margin: .5in; }
       main { min-width: 0; max-width: none; margin: 0; padding: 0; }
       .app-header, .sheet-meta, .sheet, .help { display: none; }
-      .print-pages { display: block; }
-      .print-page { break-after: page; }
-      .print-page:last-child { break-after: auto; }
-      .print-page .lyrics-wrap { width: 7.3in; margin: 0; padding: 0; overflow: hidden; }
-      .print-page .lyrics { width: 7.3in; }
+      .print-pages { position: static; width: auto; }
       .lyric-input::placeholder { color: transparent; }
       .lyric-line.page-break { visibility: hidden; }
       .lyric-line.editing-row,
@@ -192,7 +194,7 @@
       .save-status { text-align: left; }
       .page-sidebar { width: 62px; margin-left: 8px; }
       .page-thumbnail { width: 60px; height: 78px; }
-      .page-thumbnail .paper-page { zoom: .0735; }
+      .page-thumbnail .paper-page { transform: scale(.0735); }
     }
   </style>
 </head>
@@ -257,7 +259,7 @@
         </div>
       </form>
     </dialog>
-    <div class="print-pages" id="printPages"></div>
+    <div class="print-pages" id="printPages" aria-hidden="true" inert></div>
   </main>
   <script>
     (() => {
@@ -270,7 +272,7 @@
       const keyLine = /\([A-G][#b]?m?\)/;
       let navigation = [];
       let lyricInputs = [];
-      let activePage = 0, previewPending = false, pendingFocus = null, pendingPageFocus = null;
+      let activePage = 0, previewPending = false, previewFrame = null, pendingFocus = null, pendingPageFocus = null;
       let hoverPosition = null, fallbackHoverRow = null;
       const isSectionCue = (line) => /^\s*(?:(?:verse|chorus|bridge)(?=$|[\W\d_])|\()/i.test(line);
       const isIntro = (line) => /^\s*intro:/i.test(line);
@@ -551,6 +553,7 @@
         }
         updateFallbackHover();
         updatePageList(rows, metrics.step);
+        updatePrintPages(metrics);
       }
 
       function updatePageList(rows, step) {
@@ -759,7 +762,16 @@
       function schedulePreview() {
         if (previewPending) return;
         previewPending = true;
-        requestAnimationFrame(() => { previewPending = false; syncPreview(); });
+        previewFrame = requestAnimationFrame(() => { previewPending = false; syncPreview(); });
+      }
+
+      function flushPreview() {
+        if (!previewPending) return;
+        cancelAnimationFrame(previewFrame);
+        previewPending = false;
+        syncPreview();
+        // Finish laying out the prepared pages before the print dialog snapshots them.
+        $("printPages").getBoundingClientRect();
       }
 
       // Undo history: snapshots of the whole sheet, with rapid edits (typing) merged into one step.
@@ -2515,8 +2527,7 @@
         render();
       });
       $("printSheet").addEventListener("click", () => {
-        spaceChords();
-        layoutColumns();
+        flushPreview();
         window.print();
       });
       $("exportSheet").addEventListener("click", () => {
@@ -2570,38 +2581,47 @@
           input.value = "";
         }
       });
-      window.addEventListener("beforeprint", () => {
-        layoutColumns();
+      function updatePrintPages(metrics) {
         const pages = $("printPages");
         pages.replaceChildren();
-        const staging = document.createElement("div");
-        staging.className = "print-staging";
-        const measuredLyrics = lyrics.cloneNode(true);
-        measuredLyrics.style.width = "7.3in";
-        staging.append(measuredLyrics);
-        document.body.append(staging);
-        let width, gap, count;
-        try {
-          width = measuredLyrics.getBoundingClientRect().width;
-          gap = parseFloat(getComputedStyle(measuredLyrics).columnGap);
-          count = pageMetrics().count;
-        } finally {
-          staging.remove();
-        }
-        for (let index = 0; index < count; index++) {
+        const base = lyrics.getBoundingClientRect();
+        const geometry = columnGeometry();
+        for (let index = 0; index < metrics.count; index++) {
           const printPage = document.createElement("div");
           printPage.className = "print-page";
           const wrap = document.createElement("div");
           wrap.className = "lyrics-wrap";
-          const content = lyrics.cloneNode(true);
-          content.removeAttribute("id");
-          content.style.transform = `translateX(-${index * (width + gap)}px)`;
-          wrap.append(content);
           printPage.append(wrap);
           pages.append(printPage);
         }
+        // Print engines can reflow multicolumn content; preserve the editor's measured fragments instead.
+        for (const row of lyrics.children) {
+          if (!row.classList.contains("lyric-line") || row.classList.contains("page-break") ||
+              row.classList.contains("virtual-line") || row.hidden) continue;
+          let offset = 0;
+          for (const rect of row.getClientRects()) {
+            const column = Math.max(0, Math.round((rect.left - base.left) / geometry.scale / geometry.colStep));
+            const index = Math.floor(column / 2);
+            if (index < metrics.count && rect.height) {
+              const clip = document.createElement("div"), copy = row.cloneNode(true);
+              clip.className = "print-row-clip";
+              clip.style.left = `${(rect.left - base.left) / geometry.scale - index * metrics.step - 2}px`;
+              clip.style.top = `${(rect.top - base.top) / geometry.scale}px`;
+              clip.style.width = `${rect.width / geometry.scale + 4}px`;
+              clip.style.height = `${rect.height / geometry.scale}px`;
+              copy.style.top = `${-offset}px`;
+              copy.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+              clip.append(copy);
+              pages.children[index].firstElementChild.append(clip);
+            }
+            offset += rect.height / geometry.scale;
+          }
+        }
+      }
+      window.addEventListener("beforeprint", () => {
+        // Safari may already have applied print styles and hidden the editor.
+        if (lyrics.getBoundingClientRect().width) flushPreview();
       });
-      window.addEventListener("afterprint", () => { $("printPages").replaceChildren(); schedulePreview(); });
       window.addEventListener("resize", schedulePreview);
     })();
   </script>

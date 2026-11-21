@@ -86,16 +86,60 @@ const esc = (s) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const clean = (s) =>
   s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-const cleanReading = (s) =>
-  s
-    .replace(/<a\b[^>]*class=["']?crossreference["']?[^>]*>[\s\S]*?<\/a>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+function divsWithClass(html, className) {
+  const divs = [];
+  const tags = /<\/?div\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+  let match;
+  while ((match = tags.exec(html))) {
+    if (/^<\//.test(match[0])) continue;
+    const classes = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(match[0]);
+    if (!classes || !(classes[1] || classes[2] || classes[3]).split(/\s+/).includes(className)) continue;
+    const start = tags.lastIndex;
+    let depth = 1;
+    while (depth && (match = tags.exec(html))) {
+      depth += /^<\//.test(match[0]) ? -1 : 1;
+    }
+    if (depth) throw new Error(`Unclosed ${className} section on source page`);
+    divs.push(html.slice(start, match.index));
+  }
+  return divs;
+}
+
+function safeContent(html) {
+  const allowed = new Set(["p", "blockquote", "br", "em", "i", "strong", "b", "sup", "sub", "ul", "ol", "li", "h2", "h3", "h4"]);
+  const tags = /<!--[\s\S]*?-->|<\/?[a-z][\w:-]*(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+  const text = (s) => s.replace(/&(?!(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);)/gi, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  html = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "");
+  let result = "";
+  let last = 0;
+  for (const match of html.matchAll(tags)) {
+    result += text(html.slice(last, match.index));
+    const tag = /^<(\/?)([a-z][\w:-]*)/i.exec(match[0]);
+    if (tag && allowed.has(tag[2].toLowerCase())) {
+      const name = tag[2].toLowerCase();
+      const classes = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(match[0]);
+      const sourceClasses = (classes && (classes[1] || classes[2] || classes[3]) || "").split(/\s+/);
+      const safeClasses = name === "p"
+        ? [
+          ...(sourceClasses.includes("line") ? ["scripture-line"] : []),
+          ...sourceClasses.filter((className) => className === "indent1" || className === "indent2"),
+          ...(sourceClasses.includes("scripture-stanza") ? ["scripture-stanza"] : []),
+        ]
+        : name === "h3" && sourceClasses.includes("psalm-book") ? ["psalm-book"] : [];
+      result += `<${tag[1]}${name}${safeClasses.length && !tag[1] ? ` class="${safeClasses.join(" ")}"` : ""}>`;
+    }
+    last = match.index + match[0].length;
+  }
+  return result + text(html.slice(last));
+}
+
+function stripAnchorsByClass(html, excludedClasses) {
+  return html.replace(/<a\b([^>]*)>[\s\S]*?<\/a>/gi, (anchor, attributes) => {
+    const match = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attributes);
+    const classes = (match && (match[1] || match[2] || match[3]) || "").split(/\s+/);
+    return classes.some((className) => excludedClasses.includes(className)) ? "" : anchor;
+  });
+}
 
 function parse(html) {
   const start = html.indexOf("id=alistair_begg_devotional");
@@ -107,10 +151,8 @@ function parse(html) {
   if (!title) return null;
   const verse = (s.match(/devotional_scripture_text>([\s\S]*?)<\/div>/) || [])[1] || "";
   const ref = (s.match(/devotional_scripture_reference>([\s\S]*?)<\/div>/) || [])[1] || "";
-  const body = (s.match(/<div class=content-body[^>]*>([\s\S]*?)<\/div>/) || [])[1] || "";
-  const paragraphs = [...body.matchAll(/<p>([\s\S]*?)<\/p>/g)]
-    .map((m) => clean(m[1]))
-    .filter(Boolean);
+  const body = divsWithClass(s, "content-body")[0];
+  if (!body || !body.trim()) throw new Error("Could not find devotional content on source page");
   const questions = [...s.matchAll(/devotional-questions__text>([\s\S]*?)<\/p>/g)].map(
     (m) => clean(m[1])
   );
@@ -120,13 +162,17 @@ function parse(html) {
     ),
   ].map((m) => ({
     title: clean(m[1]),
-    text: cleanReading(m[2]),
+    text: safeContent(stripAnchorsByClass(
+      m[2].replace(/<span\b[^>]*\bclass=["']?line-group["']?[^>]*>\s*<\/span>/gi, '<p class="scripture-stanza"></p>')
+        .replace(/<a\b[^>]*\bclass=["']?crossreference["']?[^>]*>[\s\S]*?<\/a>/gi, ""),
+      ["footnote"]
+    )),
   }));
   return {
     title: clean(title),
     verse: clean(verse),
     ref: clean(ref),
-    paragraphs,
+    body: safeContent(stripAnchorsByClass(body, ["ab_footnote", "footnote"])),
     questions,
     furtherReading,
   };
@@ -184,47 +230,57 @@ body.high-contrast.black .loader{color:#fff}
 .appearance-option[aria-pressed="true"]{color:#222;text-decoration:underline;text-underline-offset:3px}
 .appearance-option:hover{color:#000}
 .appearance-option:focus-visible{outline:2px solid currentColor;outline-offset:2px}
-h2{font-size:1.78em;font-weight:normal;text-align:center;line-height:1.25;margin:0 0 6px}
+.devotional-title{font-size:clamp(1.45em,6vw,1.78em);font-weight:normal;text-align:center;line-height:1.2;max-width:22em;margin:0 auto 10px;text-wrap:balance}
 .date{text-align:center;font-style:italic;color:#777;font-size:.89em;margin-bottom:32px}
 blockquote{margin:0 0 32px;padding:0 0 0 18px;border-left:2px solid #999;font-style:italic;color:#444}
 blockquote cite{display:block;margin-top:6px;font-style:normal;font-size:.83em;color:#777;letter-spacing:.05em}
-p{margin:0;text-indent:1.5em;text-align:justify;hyphens:auto}
+.devotional-body blockquote{margin:1em 0}
+p{margin:0 0 1em;text-indent:1.5em;text-align:justify;hyphens:auto}
 p:first-of-type{text-indent:0}
+.devotional-body>p:first-of-type::first-letter{float:left;font-size:3.1em;line-height:.82;padding:.08em .08em 0 0}
 h3{font-size:.72em;font-weight:normal;text-transform:uppercase;letter-spacing:.25em;color:#777;text-align:center;margin:44px 0 16px}
 details.further-reading{margin-top:40px;border-top:1px solid #d5d5d0;border-bottom:1px solid #d5d5d0}
-details.further-reading>summary{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 8px;color:#777;font-size:12px;font-weight:normal;text-transform:uppercase;letter-spacing:.18em;text-align:center;cursor:pointer;list-style:none}
+details.further-reading>summary{position:relative;display:block;padding:10px 0 10px 95px;color:#555;font-size:.95em;font-weight:normal;text-align:left;cursor:pointer;list-style:none;transition:color .18s ease}
 details.further-reading>summary::-webkit-details-marker{display:none}
-details.further-reading>summary::after{content:"";width:7px;height:7px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .18s ease}
+details.further-reading>summary::before{content:"";position:absolute;left:20px;top:50%;width:9px;height:9px;border-right:1.5px solid #888;border-bottom:1.5px solid #888;transform:translateY(-50%) rotate(-45deg);transition:transform .18s ease}
 details.further-reading[open]>summary{border-bottom:1px solid #d5d5d0}
-details.further-reading[open]>summary::after{transform:rotate(225deg) translate(-2px,-1px)}
+details.further-reading[open]>summary::before{transform:translateY(-50%) rotate(45deg)}
 details.further-reading>summary:hover{color:#222}
 details.further-reading>summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
-.further-reading-content{margin:16px 0;padding:0 16px 4px;border-left:2px solid #d5d5d0}
-h4.reading-title{font-size:1.06em;font-weight:normal;margin:0 0 8px}
-.reading-text{text-indent:0;text-align:left}
+.further-reading-content{margin:0;padding:16px 2px 4px}
+.reading-text h3{font-size:1.12em;font-weight:normal;text-transform:none;letter-spacing:normal;color:inherit;text-align:left;line-height:1.3;margin:1.25em 0 .5em}
+.reading-text h3.psalm-book{font-size:.8em;text-transform:uppercase;letter-spacing:.14em;margin-bottom:.3em}
+.reading-text h4{font-size:.92em;font-weight:normal;font-style:italic;margin:0 0 .8em}
+.reading-text p.scripture-line{margin:0;text-indent:0;text-align:left}
+.reading-text p.scripture-line>sup{margin-right:.35em}
+.reading-text p.scripture-line.indent1{padding-left:1.5em;text-indent:-1.5em}
+.reading-text p.scripture-line.indent2{padding-left:3em;text-indent:-1.5em}
+.reading-text p.scripture-stanza{height:1em;line-height:0;margin:0;text-indent:0}
 ol{padding-left:1.4em}
 li{margin-bottom:10px}
-hr{border:0;text-align:center;margin:48px 0 14px}
-hr:after{content:"\\2767";color:#999}
-footer{font-size:13px;text-align:center;color:#999}
+footer{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 16px;font-size:12px;text-align:center;color:#999;padding-top:32px}
+footer .footer-source,footer .footer-meta{white-space:nowrap}
+footer .footer-meta{color:#777;letter-spacing:.04em}
 .err{color:#777;text-align:center;text-indent:0}
 body.high-contrast{background:#fff;color:#000}
-body.high-contrast h1.site,body.high-contrast .date,body.high-contrast blockquote,body.high-contrast blockquote cite,body.high-contrast h3,body.high-contrast footer,body.high-contrast nav,body.high-contrast .err,body.high-contrast hr:after{color:#000}
+body.high-contrast h1.site,body.high-contrast .date,body.high-contrast blockquote,body.high-contrast blockquote cite,body.high-contrast h3,body.high-contrast footer,body.high-contrast nav,body.high-contrast .err{color:#000}
 body.high-contrast a{color:#000;border-color:#000}
 body.high-contrast a:hover{border-color:#000}
 body.high-contrast blockquote{border-color:#000}
 body.high-contrast details.further-reading{border-color:#000}
-body.high-contrast details.further-reading>summary{color:#000}
+body.high-contrast details.further-reading>summary{color:#000;border-color:#000;background:transparent}
+body.high-contrast details.further-reading>summary::before{border-color:currentColor}
 body.high-contrast details.further-reading[open]>summary,body.high-contrast .further-reading-content{border-color:#000}
 body.high-contrast details.further-reading>summary:hover{color:#000}
 body.high-contrast .appearance-option,body.high-contrast .size-option{color:#000;border-color:#000}
 body.high-contrast.black{background:#000;color:#fff}
-body.high-contrast.black h1.site,body.high-contrast.black .date,body.high-contrast.black blockquote,body.high-contrast.black blockquote cite,body.high-contrast.black h3,body.high-contrast.black footer,body.high-contrast.black nav,body.high-contrast.black .err,body.high-contrast.black hr:after{color:#fff}
+body.high-contrast.black h1.site,body.high-contrast.black .date,body.high-contrast.black blockquote,body.high-contrast.black blockquote cite,body.high-contrast.black h3,body.high-contrast.black footer,body.high-contrast.black nav,body.high-contrast.black .err{color:#fff}
 body.high-contrast.black a{color:#fff;border-color:#fff}
 body.high-contrast.black a:hover{border-color:#fff}
 body.high-contrast.black blockquote{border-color:#fff}
 body.high-contrast.black details.further-reading{border-color:#fff}
-body.high-contrast.black details.further-reading>summary{color:#fff}
+body.high-contrast.black details.further-reading>summary{color:#fff;border-color:#fff;background:transparent}
+body.high-contrast.black details.further-reading>summary::before{border-color:currentColor}
 body.high-contrast.black details.further-reading[open]>summary,body.high-contrast.black .further-reading-content{border-color:#fff}
 body.high-contrast.black details.further-reading>summary:hover{color:#fff}
 body.high-contrast.black .appearance-option,body.high-contrast.black .size-option{color:#fff;border-color:#fff}
@@ -234,11 +290,12 @@ function mainHtml(d, data, err) {
   const pretty = d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   if (err) return `<p class="err">Sorry, couldn't fetch the devotional: ${esc(err)}</p>`;
   else {
-    return `<h2>${esc(data.title)}</h2><div class="date">${esc(pretty)}</div>
+    const readingTitle = data.furtherReading.map((reading) => esc(reading.title)).join(" · ");
+    return `<h2 class="devotional-title">${esc(data.title)}</h2><div class="date">${esc(pretty)}</div>
 <blockquote>${esc(data.verse)}<cite>&mdash; ${esc(data.ref)}</cite></blockquote>
-${data.paragraphs.map((p) => `<p>${esc(p)}</p>`).join("\n")}
+<div class="devotional-body">${data.body}</div>
 ${data.questions.length ? `<h3>Questions for Thought</h3><ol>${data.questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>` : ""}
-${data.furtherReading.length ? `<details class="further-reading"><summary>Further Reading</summary><div class="further-reading-content">${data.furtherReading.map((reading) => `<h4 class="reading-title">${esc(reading.title)}</h4><p class="reading-text">${esc(reading.text)}</p>`).join("\n")}</div></details>` : ""}`;
+${data.furtherReading.length ? `<details class="further-reading"><summary>${readingTitle}</summary><div class="further-reading-content">${data.furtherReading.map((reading) => `<div class="reading-text">${reading.text}</div>`).join("\n")}</div></details>` : ""}`;
   }
 }
 
@@ -268,7 +325,7 @@ function page(d, main) {
 </div>
 </div>
 <div id="content">${main}</div>
-<hr><footer>Content &copy; Truth For Life &middot; <a href="${SRC}?tab=alistair_begg_devotional">original</a><br><a href="https://sctruong.com/">ste</a>, ${new Date().getFullYear()}</footer>
+<footer><span class="footer-source">Content &copy; Truth For Life &middot; <a href="${SRC}?tab=alistair_begg_devotional">original</a></span><span class="footer-meta">ste &middot; ${new Date().getFullYear()} &middot; v1.67</span></footer>
 </div><script>
 (() => {
   const content = document.getElementById("content");
@@ -330,7 +387,7 @@ function page(d, main) {
 </script></body></html>`;
 }
 
-http
+if (require.main === module) http
   .createServer(async (req, res) => {
     const u = new URL(req.url, "http://x");
     if (u.pathname === "/api/tetris/leaderboard") {
@@ -392,3 +449,5 @@ http
     res.end(`<style>#loader{display:none}</style>${main}<script>document.title=${JSON.stringify(title + "Daily Devotional").replace(/</g, "\\u003c")}</script>${tail}`);
   })
   .listen(PORT, "127.0.0.1", () => console.log("http://localhost:" + PORT));
+
+module.exports = { parse, mainHtml };
