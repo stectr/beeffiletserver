@@ -1,0 +1,7 @@
+{
+  "name": "beeffilet-sites",
+  "private": true,
+  "devDependencies": {
+    "playwright": "^1.65.1"
+  }
+}

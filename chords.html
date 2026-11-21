@@ -49,7 +49,7 @@
     .app-header button { padding: .4em .75em; border-color: transparent; border-radius: 999px; background: transparent; color: #666660; font-size: .85rem; font-weight: 500; }
     .app-header button:hover { border-color: transparent; background: #0000000d; color: #1c1c1a; }
     .app-header button#printSheet { color: #1c1c1a; font-weight: 600; }
-    .sheet, .print-pages { font: 11pt/1.3 Georgia, "Times New Roman", serif; }
+    .sheet, .print-pages, .page-thumbnail .paper-page { font: 11pt/1.3 Georgia, "Times New Roman", serif; }
     .sheet-meta { width: min(100%, 816px); margin: 0 auto 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .save-status { flex: 1; min-width: 0; margin: 0; color: #666660; text-align: left; font: .84rem/1.45 Inter, system-ui, sans-serif; }
     .save-status.error { color: #8a1f1f; }
@@ -71,7 +71,7 @@
     .page-jump { display: block; width: fit-content; margin: auto; padding: 0; border: 0; border-radius: 0; background: white; box-shadow: 0 1px 5px #0002; }
     .page-jump:hover { background: white; box-shadow: 0 2px 8px #0003; }
     .page-thumbnail { width: 110px; height: 143px; overflow: hidden; pointer-events: none; }
-    .page-thumbnail .paper-page { transform: scale(.132); transform-origin: top left; box-shadow: none; outline: 0; }
+    .page-thumbnail .paper-page { transform: scale(.132); transform-origin: top left; text-align: start; box-shadow: none; outline: 0; }
     .page-thumbnail .page-snapshot { content-visibility: visible; }
     .page-thumbnail .virtual-line { display: none; }
     .page-thumbnail .lyric-line.page-break { visibility: hidden; }
@@ -148,33 +148,34 @@
     .lyric-input, .chord-input { -webkit-user-select: text; user-select: text; }
     .line-slot.has-formatted-display .line-size { display: none; }
     .formatted-display { display: block; padding: 0 .1em; min-height: 1.3em; line-height: 1.3; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
-    .time-signature { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .7em; line-height: .8; }
-    .time-signature > :first-child { border-bottom: 1px solid currentColor; }
     .line-slot.has-formatted-display .lyric-input { opacity: 0; }
     .line-slot.has-formatted-display:focus-within .line-size { display: block; }
     .line-slot.has-formatted-display:focus-within .formatted-display { display: none; }
     .line-slot.has-formatted-display:focus-within .lyric-input { opacity: 1; }
     .line-slot.has-bold-label:focus-within .line-size { display: none; }
     .line-slot.has-bold-label:focus-within .formatted-display { display: block; visibility: hidden; }
-    .line-slot.has-bold-label:focus-within .time-signature { display: inline; font-size: inherit; line-height: inherit; }
-    .line-slot.has-bold-label:focus-within .time-signature > :first-child { border: 0; }
-    .line-slot.has-bold-label:focus-within .time-signature > :first-child::after { content: "/"; }
     .chord-input:focus-visible, .lyric-input:focus-visible { outline: 0; }
     .pause { border-radius: 5px; }
     .extra-chord .chord-slot { min-width: .8em; }
     .pause:focus-within .chord-slot { min-width: .7em; }
     .error { font-weight: bold; }
-    .print-pages { position: absolute; top: 0; left: -10000px; width: 7.5in; }
-    .print-page { break-after: page; }
+    .print-pages { position: absolute; top: 0; left: -10000px; width: 8.5in; }
+    .print-page { width: 8.5in; height: 11in; padding: .5in; overflow: hidden; break-after: page; }
     .print-page:last-child { break-after: auto; }
     .print-page .lyrics-wrap { width: 7.5in; margin: 0; padding: 0; overflow: hidden; }
     .print-row-clip { position: absolute; overflow: hidden; }
     .print-row-clip > .lyric-line { position: absolute; width: calc(100% - 4px); left: 2px; }
+    .print-text { display: flex; align-items: center; white-space: pre; overflow: hidden; }
+    .line-slot .print-text { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
     @media print {
       @page { size: letter; margin: .5in; }
+      body { background: white; }
       main { min-width: 0; max-width: none; margin: 0; padding: 0; }
       .app-header, .sheet-meta, .sheet, .help { display: none; }
-      .print-pages { position: static; width: auto; }
+      .print-pages { position: static; width: 7.5in; }
+      .print-page { width: 7.5in; height: 1px; padding: 0; overflow: visible; }
+      /* Row clips can overhang the columns and trigger shrink-to-fit. */
+      .print-page .lyrics-wrap { height: 0; overflow-x: clip; overflow-y: visible; }
       .lyric-input::placeholder { color: transparent; }
       .lyric-line.page-break { visibility: hidden; }
       .lyric-line.editing-row,
@@ -1473,42 +1474,19 @@
         return slot;
       }
 
-      function fixedLineField(lineStart, lineEnd, line, lineIndex, formatTimeSignatures, boldLabel = false) {
+      function fixedLineField(lineStart, lineEnd, line, lineIndex, boldLabel = false) {
         const entry = { kind: "line", line: lineIndex, lineStart, lineEnd };
         const slot = lyricField(entry, line, "Lyric line", boldLabel);
-        if (formatTimeSignatures || boldLabel) {
-          const matches = formatTimeSignatures ?
-            [...line.matchAll(/(^|[^a-z0-9/])(\d{1,2})\/(1|2|4|8|16|32|64)(?![a-z0-9/])/gi)] : [];
-          if (matches.length || boldLabel) {
-            const display = document.createElement("span");
-            display.className = "formatted-display";
-            display.setAttribute("aria-hidden", "true");
-            let position = 0;
-            if (boldLabel) {
-              const prefix = labelPrefix(line);
-              const bold = document.createElement("strong");
-              bold.textContent = prefix;
-              display.append(bold);
-              position = prefix.length;
-              slot.classList.add("has-bold-label");
-            }
-            for (const match of matches) {
-              const start = match.index + match[1].length;
-              if (start < position) continue;
-              display.append(document.createTextNode(line.slice(position, start)));
-              const fraction = document.createElement("span");
-              fraction.className = "time-signature";
-              const top = document.createElement("span"), bottom = document.createElement("span");
-              top.textContent = match[2];
-              bottom.textContent = match[3];
-              fraction.append(top, bottom);
-              display.append(fraction);
-              position = start + match[2].length + 1 + match[3].length;
-            }
-            display.append(document.createTextNode(line.slice(position)));
-            slot.classList.add("has-formatted-display");
-            slot.prepend(display);
-          }
+        if (boldLabel) {
+          const display = document.createElement("span");
+          display.className = "formatted-display";
+          display.setAttribute("aria-hidden", "true");
+          const prefix = labelPrefix(line);
+          const bold = document.createElement("strong");
+          bold.textContent = prefix;
+          display.append(bold, document.createTextNode(line.slice(prefix.length)));
+          slot.classList.add("has-bold-label", "has-formatted-display");
+          slot.prepend(display);
         }
         entry.input_ = () => {
           const value = fieldValue(entry.input), caret = fieldSelection(entry.input)[0] ?? value.length;
@@ -1567,7 +1545,7 @@
             const introAfterTitle = intro && previous && isTitle(previous);
             if (introAfterTitle) row.className += " intro intro-after-title";
             else if (label) row.className += " label-line";
-            row.append(fixedLineField(lineStart, lineEnd, line, lineIndex, label, label));
+            row.append(fixedLineField(lineStart, lineEnd, line, lineIndex, label));
           } else {
             if (line.trim()) renderGap(row, offset, lineIndex);
             for (const match of line.matchAll(/\s+|\S+/g)) {
@@ -2611,6 +2589,13 @@
               clip.style.height = `${rect.height / geometry.scale}px`;
               copy.style.top = `${-offset}px`;
               copy.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+              copy.querySelectorAll("input, textarea").forEach((input) => {
+                const text = document.createElement("span");
+                text.className = `${input.className} print-text`;
+                text.textContent = input.value;
+                input.replaceWith(text);
+              });
+              copy.querySelectorAll("[contenteditable]").forEach((element) => element.removeAttribute("contenteditable"));
               clip.append(copy);
               pages.children[index].firstElementChild.append(clip);
             }
